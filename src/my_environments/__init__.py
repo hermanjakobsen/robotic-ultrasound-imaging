@@ -1,1 +1,1 @@
-from .sawyer_ultrasound import SawyerUltrasound
+from .panda_ultrasound import PandaUltrasound

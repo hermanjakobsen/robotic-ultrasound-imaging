@@ -2,23 +2,22 @@ from collections import OrderedDict
 import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
-from robosuite.environments.sawyer import SawyerEnv
 
-from robosuite.models.objects import BoxObject, BallObject
-from robosuite.models.robots import Sawyer
-from robosuite.models.tasks import UniformRandomSampler
+from robosuite.models.arenas import TableArena
+from robosuite.models.objects import BoxObject, BreadObject
+from robosuite.models.tasks import TableTopTask, UniformRandomSampler
 
-from my_models.tasks import UltrasoundTask
-from my_models.arenas import UltrasoundArena
+from my_environments.panda import PandaEnv
+from my_models.robots.panda_robot import Panda
 
-class SawyerUltrasound(SawyerEnv):
+class PandaUltrasound(PandaEnv):
     """
-    This class corresponds to the ultrasound task for the Sawyer robot arm.
+    This class corresponds to the ultrasound task for the Panda robot arm.
     """
 
     def __init__(
         self,
-        gripper_type="TwoFingerGripper",
+        gripper_type="PandaGripper",
         table_full_size=(0.8, 0.8, 0.8),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
@@ -124,32 +123,26 @@ class SawyerUltrasound(SawyerEnv):
         self.mujoco_robot.set_base_xpos([0, 0, 0])
 
         # load model for table top workspace
-        self.mujoco_arena = UltrasoundArena(
+        self.mujoco_arena = TableArena(
             table_full_size=self.table_full_size, table_friction=self.table_friction
         )
         if self.use_indicator_object:
             self.mujoco_arena.add_pos_indicator()
 
-        # The sawyer robot has a pedestal, we want to align it with the table
+        # The panda robot has a pedestal, we want to align it with the table
         self.mujoco_arena.set_origin([0.16 + self.table_full_size[0] / 2, 0, 0])
 
         # initialize objects of interest
         cube = BoxObject(
-            size_min=[0.020, 0.020, 0.020],
-            size_max=[0.022, 0.022, 0.022],
+            size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
+            size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 1],
         )
-
-        ball = BallObject(
-            size_min=[0.020, 0.020, 0.020],
-            size_max=[0.022, 0.022, 0.022],
-            rgba=[1, 0, 0, 1],
-            )
-
-        self.mujoco_objects = OrderedDict([("cube", cube), ("ball", ball)])
+        bread = BreadObject()
+        self.mujoco_objects = OrderedDict([("cube", cube), ("bread", bread)])
 
         # task includes arena, robot, and objects of interest
-        self.model = UltrasoundTask(
+        self.model = TableTopTask(
             self.mujoco_arena,
             self.mujoco_robot,
             self.mujoco_objects,
@@ -183,7 +176,7 @@ class SawyerUltrasound(SawyerEnv):
         self.model.place_objects()
 
         # reset joint positions
-        init_pos = np.array([-0.5538, -0.8208, 0.4155, 1.8409, -0.4955, 0.6482, 1.9628])
+        init_pos = self.mujoco_robot.init_qpos
         init_pos += np.random.randn(init_pos.shape[0]) * 0.02
         self.sim.data.qpos[self._ref_joint_pos_indexes] = np.array(init_pos)
 
