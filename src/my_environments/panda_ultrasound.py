@@ -3,12 +3,11 @@ import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
 
-from robosuite.models.arenas import TableArena
-
 from my_environments.panda import PandaEnv
 from my_models.robots.panda_robot import Panda
 from my_models.objects.xml_objects import ProbeObject, TorsoObject
 from my_models.tasks import UltrasoundTask
+from my_models.arenas import UltrasoundArena
 
 class PandaUltrasound(PandaEnv):
     """
@@ -112,7 +111,7 @@ class PandaUltrasound(PandaEnv):
         self.mujoco_robot.set_base_xpos([0, 0, 0])
 
         # load model for table top workspace
-        self.mujoco_arena = TableArena(
+        self.mujoco_arena = UltrasoundArena(
             table_full_size=self.table_full_size, table_friction=self.table_friction
         )
         if self.use_indicator_object:
