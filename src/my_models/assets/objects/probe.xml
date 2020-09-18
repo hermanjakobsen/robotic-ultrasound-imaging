@@ -1,11 +1,11 @@
 <mujoco model="probe">
   <asset>
-    <mesh file="meshes/Probe_holder_C3_8_probe_clean.stl" name="probe_mesh" scale="0.01 0.01 0.01"/>
+    <mesh file="meshes/Probe_holder_C3_8_probe_clean.stl" name="probe_mesh" scale="0.002 0.002 0.002"/>
   </asset>
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="0 0 0" mesh="probe_mesh" type="mesh" mass="2"/>
+        <geom pos="1 1 1" mesh="probe_mesh" type="mesh" mass="2"/>
       </body>
     </body>
   </worldbody>
