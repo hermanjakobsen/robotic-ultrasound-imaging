@@ -7,7 +7,7 @@ from robosuite.models.arenas import TableArena
 
 from my_environments.panda import PandaEnv
 from my_models.robots.panda_robot import Panda
-from my_models.objects.xml_objects import ProbeObject
+from my_models.objects.xml_objects import ProbeObject, TorsoObject
 from my_models.tasks import UltrasoundTask
 
 class PandaUltrasound(PandaEnv):
@@ -123,8 +123,9 @@ class PandaUltrasound(PandaEnv):
 
         # initialize objects of interest
         probe = ProbeObject()
-        
-        self.mujoco_objects = OrderedDict([("probe", probe)])
+        torso = TorsoObject()
+
+        self.mujoco_objects = OrderedDict([("probe", probe), ("human_torso", torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(

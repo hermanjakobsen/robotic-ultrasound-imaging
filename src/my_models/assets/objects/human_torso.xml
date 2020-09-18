@@ -1,0 +1,12 @@
+<mujoco model="human_torso">
+  <asset>
+    <mesh file="meshes/Torso.stl" name="human_torso_mesh" scale="0.01 0.01 0.01"/>
+  </asset>
+  <worldbody>
+    <body>
+      <body name="collision">
+        <geom pos="1 1 1" mesh="human_torso_mesh" type="mesh" mass="20"/>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>
