@@ -23,12 +23,6 @@ class UltrasoundTask(Task):
         self.merge_arena(mujoco_arena)
         self.merge_robot(mujoco_robot)
         self.merge_objects(mujoco_objects)
-        if initializer is None:
-            initializer = UniformRandomSampler()
-        mjcfs = [x for _, x in self.mujoco_objects.items()]
-
-        self.initializer = initializer
-        self.initializer.setup(mjcfs, self.table_top_offset, self.table_size)
 
     def merge_robot(self, mujoco_robot):
         """Adds robot model to the MJCF model."""
@@ -47,7 +41,6 @@ class UltrasoundTask(Task):
         self.mujoco_objects = mujoco_objects
         self.objects = []  # xml manifestation
         self.targets = []  # xml manifestation
-        self.max_horizontal_radius = 0
 
         for obj_name, obj_mjcf in mujoco_objects.items():
             self.merge_asset(obj_mjcf)
@@ -56,14 +49,3 @@ class UltrasoundTask(Task):
             obj.append(new_joint(name=obj_name, type="free"))
             self.objects.append(obj)
             self.worldbody.append(obj)
-
-            self.max_horizontal_radius = max(
-                self.max_horizontal_radius, obj_mjcf.get_horizontal_radius()
-            )
-
-    def place_objects(self):
-        """Places objects randomly until no collisions or max iterations hit."""
-        pos_arr, quat_arr = self.initializer.sample()
-        for i in range(len(self.objects)):
-            self.objects[i].set("pos", array_to_string(pos_arr[i]))
-            self.objects[i].set("quat", array_to_string(quat_arr[i]))
