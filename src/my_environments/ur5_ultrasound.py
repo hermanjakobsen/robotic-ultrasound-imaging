@@ -16,7 +16,7 @@ class UR5Ultrasound(UR5Env):
 
     def __init__(
         self,
-        gripper_type=None, #"RobotiqGripper",
+        gripper_type="RobotiqGripper",
         table_full_size=(0.8, 0.8, 0.8),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
