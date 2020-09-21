@@ -5,7 +5,7 @@
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="1 1 1" mesh="probe_mesh" type="mesh" mass="2"/>
+        <geom pos="2 1 1" mesh="probe_mesh" type="mesh" mass="2"/>
       </body>
     </body>
   </worldbody>
