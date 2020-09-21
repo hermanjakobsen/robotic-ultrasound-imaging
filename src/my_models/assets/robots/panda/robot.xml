@@ -60,11 +60,13 @@
             <inertial pos="0 0 0.05" mass="4" diaginertia="0.4 0.4 0.4" />
             <geom type="mesh" contype="0" conaffinity="0" group="1" mesh="link0_vis" name="link0_visual" rgba="1 1 1 1"/>
             <geom type="mesh" group="0" mesh="link0" name="link0_collision"/>
+
             <body name="link1" pos="0 0 0.333">
                 <inertial pos="0 0 -0.07" mass="3" diaginertia="0.3 0.3 0.3" />
                 <joint name="joint1" pos="0 0 0" axis="0 0 1" limited="true" range="-2.8973 2.8973" damping="0.1"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" mesh="link1_vis" name="link1_visual" rgba="1 1 1 1"/>
                 <geom type="mesh" group="0" mesh="link1" name="link1_collision"/>
+                
                 <body name="link2" pos="0 0 0" quat="0.707107 -0.707107 0 0">
                     <inertial pos="0 -0.1 0" mass="3" diaginertia="0.3 0.3 0.3" />
                     <joint name="joint2" pos="0 0 0" axis="0 0 1" limited="true" range="-1.7628 1.7628" damping="0.1"/>

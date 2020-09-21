@@ -5,7 +5,7 @@
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="1 1 1" mesh="human_torso_mesh" type="mesh" mass="20"/>
+        <geom pos="-1.4 -0.3 0.8" mesh="human_torso_mesh" type="mesh" mass="20"/>
       </body>
     </body>
   </worldbody>

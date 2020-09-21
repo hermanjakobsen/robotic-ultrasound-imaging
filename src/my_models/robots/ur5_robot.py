@@ -3,18 +3,18 @@ from robosuite.models.robots.robot import Robot
 from robosuite.utils.mjcf_utils import array_to_string
 
 
-class Panda(Robot):
-    """Panda is a sensitive single-arm robot designed by Franka."""
+class UR5(Robot):
+    "Universal Robots UR5 is an industrial robotic arm designed to simulate repetitive manual tasks weighing up to 5 kg."
 
     def __init__(self):
-        super().__init__("my_models/assets/robots/panda/robot.xml")
+        super().__init__("my_models/assets/robots/ur5/robot.xml")
 
         self.bottom_offset = np.array([0, 0, -0.913])
         self.set_joint_damping()
-        self._model_name = "panda"
+        self._model_name = "UR5"
         # Careful of init_qpos -- certain init poses cause ik controller to go unstable (e.g: pi/4 instead of -pi/4
         # for the final joint angle)
-        self._init_qpos = np.array([0, np.pi / 16.0, 0.00, -np.pi / 2.0 - np.pi / 3.0, 0.00, np.pi - 0.2, -np.pi/4])
+        self._init_qpos = np.array([0, np.pi / 16.0, 0.00, -np.pi / 2.0 - np.pi / 3.0, 0.00, np.pi - 0.2])
 
     def set_base_xpos(self, pos):
         """Places the robot on position @pos."""
@@ -39,11 +39,11 @@ class Panda(Robot):
 
     @property
     def dof(self):
-        return 7
+        return 6
 
     @property
     def joints(self):
-        return ["joint{}".format(x) for x in range(1, 8)]
+        return ["joint{}".format(x) for x in range(1, 7)]
 
     @property
     def init_qpos(self):
@@ -51,7 +51,7 @@ class Panda(Robot):
 
     @property
     def contact_geoms(self):
-        return ["link{}_collision".format(x) for x in range(1, 8)]
+        return ["link{}_collision".format(x) for x in range(1, 7)]
 
     @property
     def _base_body(self):
@@ -60,8 +60,8 @@ class Panda(Robot):
 
     @property
     def _link_body(self):
-        return ["link1", "link2", "link3", "link4", "link5", "link6", "link7"]
+        return ["link1", "link2", "link3", "link4", "link5", "link6"]
 
     @property
     def _joints(self):
-        return ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"]
+        return ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]

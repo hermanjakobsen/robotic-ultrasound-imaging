@@ -2,12 +2,10 @@
     <size njmax="500" nconmax="100" />
     <asset>
         <mesh name="hand" file="meshes/panda_gripper/hand.stl" />
-
         <mesh name="hand_vis" file="meshes/panda_gripper/hand_vis.stl" />
         <mesh name="finger" file="meshes/panda_gripper/finger.stl" />
         <mesh name="finger_vis" file="meshes/panda_gripper/finger_vis.stl" />
         <mesh name="finger_vis2" file="meshes/panda_gripper/finger_longer.stl" />
-
     </asset>
 
     <actuator>
