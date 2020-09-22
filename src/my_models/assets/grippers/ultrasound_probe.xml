@@ -4,7 +4,7 @@
   </asset>
   <worldbody>
     <body>
-      <body name="collision">
+      <body name="probe_collision">
         <geom pos="-0.004 -0.063 0.12" mesh="probe_mesh" type="mesh" mass="1" quat="0 0 0.7071 -0.7071"/>
         <!-- This site was added for visualization. -->
         <site name="grip_site" pos="0 0 0.1050" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
