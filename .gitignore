@@ -1,8 +1,16 @@
-venv/
+# Temp folders created by Python and VScode
+.vscode/
 __pycache__/
+
+# Virtual enviornment
+venv/
+
+# Code used for testing out things
+testing/
+
+# Personal files and folders
 papers/
 kanban/
 CAD Models/
-venv/
 *.pdf
-.vscode/
+
