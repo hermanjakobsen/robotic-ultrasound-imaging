@@ -1,11 +1,13 @@
 <mujoco model="human_torso">
   <asset>
     <mesh file="meshes/Torso.stl" name="human_torso_mesh" scale="0.01 0.01 0.01"/>
+    <texture file="../textures/skin.png" type="2d" name="skin-tex"/>
+    <material name="skin-material" reflectance="0.5" texrepeat="1 1" texture="skin-tex"/>
   </asset>
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="-1.4 -0.3 0.8" mesh="human_torso_mesh" type="mesh" mass="20"/>
+        <geom pos="-1.4 -0.3 0.8" mesh="human_torso_mesh" type="mesh" material="skin-material" mass="20"/>
       </body>
     </body>
   </worldbody>
