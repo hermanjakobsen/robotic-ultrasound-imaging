@@ -16,7 +16,7 @@ class UR5Ultrasound(UR5Env):
 
     def __init__(
         self,
-        gripper_type="RobotiqGripper",
+        gripper_type="UltrasoundProbe",
         table_full_size=(0.8, 0.8, 0.8),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
@@ -121,10 +121,9 @@ class UR5Ultrasound(UR5Env):
         self.mujoco_arena.set_origin([0.16 + self.table_full_size[0] / 2, 0, 0])
 
         # initialize objects of interest
-        probe = ProbeObject()
         torso = TorsoObject()
 
-        self.mujoco_objects = OrderedDict([("probe", probe), ("human_torso", torso)])
+        self.mujoco_objects = OrderedDict([("human_torso", torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(

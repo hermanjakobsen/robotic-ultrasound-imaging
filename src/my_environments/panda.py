@@ -4,7 +4,7 @@ import numpy as np
 import robosuite.utils.transform_utils as T
 from robosuite.environments import MujocoEnv
 
-from robosuite.models.grippers import gripper_factory
+from my_models.grippers.gripper_factory import gripper_factory
 from my_models.robots.panda_robot import Panda
 
 
