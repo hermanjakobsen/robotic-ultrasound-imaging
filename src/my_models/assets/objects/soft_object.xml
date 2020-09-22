@@ -1,0 +1,11 @@
+<mujoco model="soft_object">
+  <worldbody>
+    <body>
+        <body name="collision" pos="1 1 1" quat="0.7071 -0.7071 0 0">
+          <composite type="ellipsoid" count="10 5 7" spacing="0.05">
+            <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
+          </composite>
+        </body>
+    </body>
+  </worldbody>
+</mujoco>
