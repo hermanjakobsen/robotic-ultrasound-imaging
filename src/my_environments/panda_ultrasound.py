@@ -5,9 +5,12 @@ from robosuite.utils.transform_utils import convert_quat
 
 from my_environments.panda import PandaEnv
 from my_models.robots.panda_robot import Panda
-from my_models.objects.xml_objects import ProbeObject, TorsoObject
+from my_models.objects.xml_objects import TorsoObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
+
+from my_models.grippers.panda_gripper import PandaGripper
+from my_models.grippers.ultrasoundprobe_gripper import UltrasoundProbeGripper
 
 class PandaUltrasound(PandaEnv):
     """
@@ -16,7 +19,7 @@ class PandaUltrasound(PandaEnv):
 
     def __init__(
         self,
-        gripper_type="PandaGripper",
+        gripper_type="UltrasoundProbe",
         table_full_size=(0.8, 0.8, 0.8),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
@@ -121,10 +124,9 @@ class PandaUltrasound(PandaEnv):
         self.mujoco_arena.set_origin([0.16 + self.table_full_size[0] / 2, 0, 0])
 
         # initialize objects of interest
-        probe = ProbeObject()
         torso = TorsoObject()
 
-        self.mujoco_objects = OrderedDict([("probe", probe), ("human_torso", torso)])
+        self.mujoco_objects = OrderedDict([("human_torso", torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
