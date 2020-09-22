@@ -3,14 +3,11 @@ import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
 
-from my_environments.panda import PandaEnv
-from my_models.robots.panda_robot import Panda
-from my_models.objects.xml_objects import TorsoObject
+from my_environments import PandaEnv
+from my_models.robots import Panda
+from my_models.objects import TorsoObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-
-from my_models.grippers.panda_gripper import PandaGripper
-from my_models.grippers.ultrasoundprobe_gripper import UltrasoundProbeGripper
 
 class PandaUltrasound(PandaEnv):
     """

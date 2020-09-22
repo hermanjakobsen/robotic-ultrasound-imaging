@@ -3,9 +3,9 @@ import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
 
-from my_environments.ur5 import UR5Env
-from my_models.robots.ur5_robot import UR5 
-from my_models.objects.xml_objects import ProbeObject, TorsoObject
+from my_environments import UR5Env
+from my_models.robots import UR5 
+from my_models.objects import TorsoObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
 
