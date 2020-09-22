@@ -12,9 +12,6 @@ class UR5(Robot):
         self.bottom_offset = np.array([0, 0, -0.913])
         self.set_joint_damping()
         self._model_name = "UR5"
-        # Careful of init_qpos -- certain init poses cause ik controller to go unstable (e.g: pi/4 instead of -pi/4
-        # for the final joint angle)
-        self._init_qpos = np.array([0, np.pi / 16.0, 0.00, -np.pi / 2.0 - np.pi / 3.0, 0.00, np.pi - 0.2])
 
     def set_base_xpos(self, pos):
         """Places the robot on position @pos."""
@@ -47,7 +44,7 @@ class UR5(Robot):
 
     @property
     def init_qpos(self):
-        return self._init_qpos
+        return np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
 
     @property
     def contact_geoms(self):
