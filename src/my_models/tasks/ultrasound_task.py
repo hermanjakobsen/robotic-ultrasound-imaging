@@ -24,6 +24,15 @@ class UltrasoundTask(Task):
         self.merge_robot(mujoco_robot)
         self.merge_objects(mujoco_objects)
 
+        if initializer is None:
+            initializer = UniformRandomSampler()
+        mjcfs = [x for _, x in self.mujoco_objects.items()]
+
+        self.initializer = initializer
+        self.initializer.setup(mjcfs, self.table_top_offset, self.table_size)
+
+        print(self.initializer.z_rotation)
+
     def merge_robot(self, mujoco_robot):
         """Adds robot model to the MJCF model."""
         self.robot = mujoco_robot
@@ -49,3 +58,9 @@ class UltrasoundTask(Task):
             obj.append(new_joint(name=obj_name, type="free"))
             self.objects.append(obj)
             self.worldbody.append(obj)
+
+    def place_objects(self):
+        """Places objects randomly until no collisions or max iterations hit."""
+        pos_arr, _ = self.initializer.sample()
+        for i in range(len(self.objects)):
+            self.objects[i].set("pos", array_to_string(pos_arr[i]))
