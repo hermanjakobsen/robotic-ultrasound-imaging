@@ -2,10 +2,11 @@ from collections import OrderedDict
 import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
+from robosuite.models.tasks import UniformRandomSampler
 
 from my_environments import UR5Env
 from my_models.robots import UR5 
-from my_models.objects import TorsoObject
+from my_models.objects import TorsoObject, SoftTorsoObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
 
@@ -103,6 +104,13 @@ class UR5Ultrasound(UR5Env):
             camera_depth=camera_depth,
         )
 
+        # object placement initializer
+        if placement_initializer:
+            self.placement_initializer = placement_initializer
+        else:
+            self.placement_initializer = UniformRandomSampler()
+
+
     def _load_model(self):
         """
         Loads an xml model, puts it in self.model
@@ -122,14 +130,18 @@ class UR5Ultrasound(UR5Env):
 
         # initialize objects of interest
         torso = TorsoObject()
+        soft_torso = SoftTorsoObject()
 
-        self.mujoco_objects = OrderedDict([("human_torso", torso)])
+        self.mujoco_objects = OrderedDict([("soft_human_torso", soft_torso)])
+        self.mujoco_objects_on_table = OrderedDict([("human_torso", torso)])
+
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
             self.mujoco_arena,
             self.mujoco_robot,
             self.mujoco_objects,
+            self.mujoco_objects_on_table
         )
 
     def _check_contact(self):

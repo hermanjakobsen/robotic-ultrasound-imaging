@@ -129,16 +129,18 @@ class PandaUltrasound(PandaEnv):
         self.mujoco_arena.set_origin([0.16 + self.table_full_size[0] / 2, 0, 0])
 
         # initialize objects of interest
-        #torso = TorsoObject()
-        soft_human_torso = SoftTorsoObject()
+        torso = TorsoObject()
+        soft_torso = SoftTorsoObject()
 
-        self.mujoco_objects = OrderedDict([("soft_human_torso", soft_human_torso)])
+        self.mujoco_objects = OrderedDict([("soft_human_torso", soft_torso)])
+        self.mujoco_objects_on_table = OrderedDict([("human_torso", torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
             self.mujoco_arena,
             self.mujoco_robot,
             self.mujoco_objects,
+            self.mujoco_objects_on_table
         )
 
         self.model.place_objects()

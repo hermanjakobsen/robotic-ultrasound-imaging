@@ -10,7 +10,7 @@ class UltrasoundTask(Task):
     arena, and the objects into a single MJCF model.
     """
 
-    def __init__(self, mujoco_arena, mujoco_robot, mujoco_objects, initializer=None):
+    def __init__(self, mujoco_arena, mujoco_robot, mujoco_objects, mujoco_objects_on_table, initializer=None):
         """
         Args:
             mujoco_arena: MJCF model of robot workspace
@@ -22,7 +22,7 @@ class UltrasoundTask(Task):
 
         self.merge_arena(mujoco_arena)
         self.merge_robot(mujoco_robot)
-        self.merge_objects(mujoco_objects)
+        self.merge_objects(mujoco_objects, mujoco_objects_on_table)
 
         if initializer is None:
             initializer = UniformRandomSampler()
@@ -30,8 +30,6 @@ class UltrasoundTask(Task):
 
         self.initializer = initializer
         self.initializer.setup(mjcfs, self.table_top_offset, self.table_size)
-
-        print(self.initializer.z_rotation)
 
     def merge_robot(self, mujoco_robot):
         """Adds robot model to the MJCF model."""
@@ -45,22 +43,30 @@ class UltrasoundTask(Task):
         self.table_size = mujoco_arena.table_full_size
         self.merge(mujoco_arena)
 
-    def merge_objects(self, mujoco_objects):
+    def merge_objects(self, mujoco_objects, mujoco_objects_on_table):
         """Adds physical objects to the MJCF model."""
         self.mujoco_objects = mujoco_objects
-        self.objects = []  # xml manifestation
-        self.targets = []  # xml manifestation
+        self.objects_on_table= mujoco_objects_on_table
 
+        self.objects = []  # xml manifestation
+        self.objects_on_table = []  # xml manifestation
+
+        self._load_objects_into_model(mujoco_objects, self.objects)
+        self._load_objects_into_model(mujoco_objects_on_table, self.objects_on_table)
+
+
+    def _load_objects_into_model(self, mujoco_objects, object_container):
         for obj_name, obj_mjcf in mujoco_objects.items():
             self.merge_asset(obj_mjcf)
             # Load object
             obj = obj_mjcf.get_collision(name=obj_name, site=True)
             obj.append(new_joint(name=obj_name, type="free"))
-            self.objects.append(obj)
+            object_container.append(obj)
             self.worldbody.append(obj)
 
     def place_objects(self):
         """Places objects randomly until no collisions or max iterations hit."""
         pos_arr, _ = self.initializer.sample()
+
         for i in range(len(self.objects)):
             self.objects[i].set("pos", array_to_string(pos_arr[i]))
