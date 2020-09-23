@@ -144,6 +144,8 @@ class UR5Ultrasound(UR5Env):
             self.mujoco_objects_on_table
         )
 
+        self.model.place_objects()
+
     def _check_contact(self):
         """
         Returns True if gripper is in contact with an object.

@@ -44,7 +44,11 @@ class UR5(Robot):
 
     @property
     def init_qpos(self):
-        return np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+        return np.array([-np.pi / 10, -np.pi / 3, np.pi / 4, 0, 0, 0])
+
+    @property
+    def init_qvel(self):
+        return np.array([0, 0, 0, 0, 0, 0])
 
     @property
     def contact_geoms(self):
