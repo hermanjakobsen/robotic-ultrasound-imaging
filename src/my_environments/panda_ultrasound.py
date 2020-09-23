@@ -5,7 +5,7 @@ from robosuite.utils.transform_utils import convert_quat
 
 from my_environments import PandaEnv
 from my_models.robots import Panda
-from my_models.objects import TorsoObject, SoftObject
+from my_models.objects import TorsoObject, SoftTorsoObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
 
@@ -122,9 +122,9 @@ class PandaUltrasound(PandaEnv):
 
         # initialize objects of interest
         torso = TorsoObject()
-        soft_object = SoftObject()
+        soft_human_torso = SoftTorsoObject()
 
-        self.mujoco_objects = OrderedDict([("human_torso", torso), ("soft_object", soft_object)])
+        self.mujoco_objects = OrderedDict([("human_torso", torso), ("soft_human_torso", soft_human_torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(

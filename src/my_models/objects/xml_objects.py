@@ -9,10 +9,10 @@ class TorsoObject(MujocoXMLObject):
         super().__init__("my_models/assets/objects/human_torso.xml")
 
 
-class SoftObject(MujocoXMLObject):
+class SoftTorsoObject(MujocoXMLObject):
     """
     Soft object
     """
 
     def __init__(self):
-        super().__init__("my_models/assets/objects/soft_object.xml")
+        super().__init__("my_models/assets/objects/soft_human_torso.xml")
