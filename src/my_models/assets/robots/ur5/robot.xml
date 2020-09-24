@@ -42,7 +42,8 @@
 
         <body name="link0" pos="0 0 0" quat="0 0 0 0" >
             <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="4" diaginertia="0.0072 0.00443333 0.00443333" />
-            <geom name="link0_collision" type="mesh" mesh="base" material="RobMat" />
+            <geom name="link0_collision" type="mesh" mesh="base" material="RobMat" group="0"/>
+            <geom name="link0_visual" type="mesh" mesh="base"  material="RobMat" group="1"/>
             <geom name="base_cap" type="cylinder" pos="0 0 0.14" size="0.06 0.02" rgba="0.596 0.96 1 1" material="RobMat" contype="0" conaffinity="0" />
             <body name="base" pos="0 0 0">
                 <inertial diaginertia="0 0 0" mass="0" pos="0 0 0"/>
@@ -68,17 +69,20 @@
             <body name="link1" pos="0 0 0.089159">
                 <inertial pos="0 0 0" mass="3.7" diaginertia="0.0102675 0.0102675 0.00666" />
                 <joint name="joint1" pos="0 0 0" axis="0 0 1" />
-                <geom name="link1_collision" type="mesh" mesh="shoulder" material="RobMat" />
+                <geom name="link1_collision" type="mesh" mesh="shoulder" material="RobMat" group="0"/>
+                <geom name="link1_visual" type="mesh" mesh="shoulder"  material="RobMat" group="1"/>
                 <geom name="shoulder_cap" type="cylinder" pos="0 0.185 0" quat="0.707107 0.707107 0 0" size="0.06 0.02" rgba="0.596 0.96 1 1" material="RobMat" contype="0" conaffinity="0" />
                 
                 <body name="link2" pos="0 0.13585 0" quat="0.707107 0 0.707107 0">
                     <inertial pos="0 0 0.28" mass="8.393" diaginertia="0.226891 0.226891 0.0151074" />
-                    <geom name="link2_collision" type="mesh" mesh="upperarm" material="RobMat" />
+                    <geom name="link2_collision" type="mesh" mesh="upperarm" material="RobMat" group="0"/>
+                    <geom name="link2_visual" type="mesh" mesh="upperarm"  material="RobMat" group="1"/>
                     <joint name="joint2" pos="0 0 0" axis="0 1 0" />
 
                     <body name="link3" pos="0 -0.1197 0.425">
                         <inertial pos="0 0 0.25" mass="2.275" diaginertia="0.0494433 0.0494433 0.004095" />
-                        <geom name="link3_collision" type="mesh" mesh="forearm" material="RobMat" />
+                        <geom name="link3_collision" type="mesh" mesh="forearm" material="RobMat" group="0"/>
+                        <geom name="link3_visual" type="mesh" mesh="forearm"  material="RobMat" group="1"/>
 
                         <!--camera name="forearm_camera" pos="0 0.1 0.07" euler="3.14159265 0 1.570796" /-->
 
@@ -87,23 +91,31 @@
 
                         <body name="link4" pos="0 0 0.39225" quat="0.707107 0 0.707107 0">
                             <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="1.219" diaginertia="0.21942 0.111173 0.111173" />
-                            <geom name="link4_collision" type="mesh" mesh="wrist1" material="RobMat" />
+                            <geom name="link4_collision" type="mesh" mesh="wrist1" material="RobMat" group="0"/>
+                            <geom name="link4_visual" type="mesh" mesh="wrist1"  material="RobMat" group="1"/>
                             <geom name="wrist1_cap" type="cylinder" pos="0 -0.045 0" quat="0.707107 0.707107 0 0" size="0.04 0.015" rgba="0.596 0.96 1 1" material="RobMat" contype="0" conaffinity="0" />
                             <joint name="joint4" pos="0 0 0" axis="0 1 0" />
 
                             <body name="link5" pos="0 0.093 0">
                                 <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="1.219" diaginertia="0.21942 0.111173 0.111173" />
-                                <geom name="link5_collision" type="mesh" mesh="wrist2" material="RobMat" />
+                                <geom name="link5_collision" type="mesh" mesh="wrist2" material="RobMat" group="0"/>
+                                <geom name="link5_visual" type="mesh" mesh="wrist2"  material="RobMat" group="1"/>
                                 <geom name="wrist2_cap" type="cylinder" pos="0 0 -0.045" quat="0.707107 0 0 0.707107" size="0.04 0.015" rgba="0.596 0.96 1 1" material="RobMat" contype="0" conaffinity="0" />
                                 <joint name="joint5" pos="0 0 0" axis="0 0 1" />
 
                                 <body name="link6" pos="0 0 0.09465" quat="0.707107 0 -0.707107 0" >
                                     <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="0.1879" diaginertia="0.033822 0.0171365 0.0171365" />
-                                    <geom name="link6_collision" type="mesh" mesh="wrist3" material="RobMat" contype="1" conaffinity="1" />
+                                    <geom name="link6_collision" type="mesh" mesh="wrist3" material="RobMat" contype="1" conaffinity="1" group="0"/>
+                                    <geom name="link6_visual" type="mesh" mesh="wrist3"  material="RobMat" group="1"/>
                                     <geom name="wrist3_cap" type="cylinder" pos="0 -0.045 0" quat="0.707107 0.707107 0 0" size="0.04 0.015" rgba="0.596 0.96 1 1" material="RobMat" contype="0" conaffinity="0" />
                                     <joint name="joint6" pos="0 0 0" axis="0 1 0" />
 
                                     <body name="ee_link" pos="0 0.0823 0" quat="0.707107 -0.707107 0 0">
+                                    <!-- These sites were added for visualization. -->
+                                            <site name="ee" pos="0 0 0" size="0.01 0.01 0.01" rgba="0 0 1 1" type="sphere" group="1"/>
+                                            <site name="ee_x" pos="0 0 0" size="0.005 .1"  quat="0.707105 0.707108 0 0 " rgba="1 0 0 0" type="cylinder" group="1"/>
+                                            <site name="ee_z" pos="0 0 0" size="0.005 .1" quat="0.707105 0 0 0.707108" rgba="0 0 1 0" type="cylinder" group="1"/>
+                                            <site name="ee_y" pos="0 0 0" size="0.005 .1" quat="0.707105 0 0.707108 0 " rgba="0 1 0 0" type="cylinder" group="1"/>
                                         <!--inertial pos="0 0.0823 0" quat="0.707107 -0.707107 0 0" mass="0" diaginertia="0 0 0" /-->
                                     </body>
                                 </body>

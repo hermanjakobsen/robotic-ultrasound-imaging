@@ -7,7 +7,8 @@
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="2 2 1" quat="0.5 -0.5 0.5 -0.5" mesh="human_torso_mesh" type="mesh" material="skin-material" mass="20"/>
+        <geom pos="2 2 1" quat="0.5 -0.5 0.5 -0.5" mesh="human_torso_mesh" type="mesh" material="skin-material" mass="20" group="0"/>
+        <geom name="visual" pos="2 2 1" quat="0.5 -0.5 0.5 -0.5" mesh="human_torso_mesh" type="mesh" material="skin-material" group="1"/>
       </body>
     </body>
   </worldbody>
