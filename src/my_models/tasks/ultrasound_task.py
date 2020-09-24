@@ -26,7 +26,7 @@ class UltrasoundTask(Task):
 
         if initializer is None:
             initializer = UniformRandomSampler()
-        mjcfs = [x for _, x in self.mujoco_objects.items()]
+        mjcfs = [x for _, x in mujoco_objects_on_table.items()]
 
         self.initializer = initializer
         self.initializer.setup(mjcfs, self.table_top_offset, self.table_size)
@@ -68,5 +68,5 @@ class UltrasoundTask(Task):
         """Places objects randomly until no collisions or max iterations hit."""
         pos_arr, _ = self.initializer.sample()
 
-        for i in range(len(self.objects)):
-            self.objects[i].set("pos", array_to_string(pos_arr[i]))
+        for i in range(len(self.objects_on_table)):
+            self.objects_on_table[i].set("pos", array_to_string(pos_arr[i]))

@@ -132,8 +132,8 @@ class PandaUltrasound(PandaEnv):
         torso = TorsoObject()
         soft_torso = SoftTorsoObject()
 
-        self.mujoco_objects = OrderedDict([("soft_human_torso", soft_torso)])
-        self.mujoco_objects_on_table = OrderedDict([("human_torso", torso)])
+        self.mujoco_objects_on_table = OrderedDict([("soft_human_torso", soft_torso)])
+        self.mujoco_objects = OrderedDict([("human_torso", torso)])
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
