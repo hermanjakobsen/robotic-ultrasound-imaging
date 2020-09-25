@@ -22,6 +22,16 @@ register_env(PandaUltrasound)
 #env = suite.make("PandaUltrasound", has_renderer=True)
 env = suite.make("UR5Ultrasound", has_renderer=True)
 
+'''
+env.reset()
+for _ in range(5000):
+    action = [0 for _ in range(env.dof)]
+    env.step(action)
+    env.render()
+'''
+
+
+# Simulate with mujoco py directly. Does not totally kill my computer hehehh ;) 
 world = env.model 
 model = world.get_model(mode="mujoco_py")
 
