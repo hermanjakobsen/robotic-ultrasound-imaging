@@ -108,7 +108,7 @@ class PandaUltrasound(PandaEnv):
         if placement_initializer:
             self.placement_initializer = placement_initializer
         else:
-            self.placement_initializer = UniformRandomSampler()
+            self.placement_initializer = UniformRandomSampler(z_rotation=None)
 
 
     def _load_model(self):
@@ -140,7 +140,8 @@ class PandaUltrasound(PandaEnv):
             self.mujoco_arena,
             self.mujoco_robot,
             self.mujoco_objects,
-            self.mujoco_objects_on_table
+            self.mujoco_objects_on_table,
+            initializer=self.placement_initializer
         )
 
         self.model.place_objects()

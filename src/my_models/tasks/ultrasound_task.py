@@ -25,7 +25,7 @@ class UltrasoundTask(Task):
         self.merge_objects(mujoco_objects, mujoco_objects_on_table)
 
         if initializer is None:
-            initializer = UniformRandomSampler()
+            initializer = UniformRandomSampler(z_rotation=None)
         mjcfs = [x for _, x in mujoco_objects_on_table.items()]
 
         self.initializer = initializer
