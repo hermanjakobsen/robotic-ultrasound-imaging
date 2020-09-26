@@ -14,7 +14,7 @@ lazy-object-proxy==1.4.3
 lockfile==0.12.2
 mccabe==0.6.1
 monotonic==1.5
-mujoco-py==2.0.2.2
+mujoco-py==2.0.2.9
 numpy==1.19.1
 opencv-python==4.4.0.42
 Pillow==7.2.0
