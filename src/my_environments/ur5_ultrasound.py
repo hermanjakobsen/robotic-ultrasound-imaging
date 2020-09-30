@@ -86,6 +86,12 @@ class UR5Ultrasound(UR5Env):
         # reward configuration
         self.reward_shaping = reward_shaping
 
+        # object placement initializer
+        if placement_initializer:
+            self.placement_initializer = placement_initializer
+        else:
+            self.placement_initializer = UniformRandomSampler(z_rotation=None)
+
         super().__init__(
             gripper_type=gripper_type,
             gripper_visualization=gripper_visualization,
@@ -103,13 +109,6 @@ class UR5Ultrasound(UR5Env):
             camera_width=camera_width,
             camera_depth=camera_depth,
         )
-
-        # object placement initializer
-        if placement_initializer:
-            self.placement_initializer = placement_initializer
-        else:
-            self.placement_initializer = UniformRandomSampler()
-
 
     def _load_model(self):
         """
@@ -141,7 +140,8 @@ class UR5Ultrasound(UR5Env):
             self.mujoco_arena,
             self.mujoco_robot,
             self.mujoco_objects,
-            self.mujoco_objects_on_table
+            self.mujoco_objects_on_table,
+            initializer=self.placement_initializer
         )
 
         self.model.place_objects()

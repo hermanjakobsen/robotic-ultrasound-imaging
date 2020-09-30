@@ -86,6 +86,12 @@ class PandaUltrasound(PandaEnv):
         # reward configuration
         self.reward_shaping = reward_shaping
 
+        # object placement initializer
+        if placement_initializer:
+            self.placement_initializer = placement_initializer
+        else:
+            self.placement_initializer = UniformRandomSampler(z_rotation=None)
+
         super().__init__(
             gripper_type=gripper_type,
             gripper_visualization=gripper_visualization,
@@ -103,12 +109,6 @@ class PandaUltrasound(PandaEnv):
             camera_width=camera_width,
             camera_depth=camera_depth,
         )
-
-        # object placement initializer
-        if placement_initializer:
-            self.placement_initializer = placement_initializer
-        else:
-            self.placement_initializer = UniformRandomSampler(z_rotation=None)
 
 
     def _load_model(self):
