@@ -186,43 +186,8 @@ class Ultrasound(RobotEnv):
         Returns:
             float: reward value
         """
-        reward = 0.
+        return 0
 
-        # sparse completion reward
-        if self._check_success():
-            reward = 2.25
-
-        # use a shaping reward
-        elif self.reward_shaping:
-
-            # reaching reward
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            dist = np.linalg.norm(gripper_site_pos - cube_pos)
-            reaching_reward = 1 - np.tanh(10.0 * dist)
-            reward += reaching_reward
-
-            # grasping reward
-            touch_left_finger = False
-            touch_right_finger = False
-            for i in range(self.sim.data.ncon):
-                c = self.sim.data.contact[i]
-                if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
-                    touch_left_finger = True
-                if c.geom1 == self.cube_geom_id and c.geom2 in self.l_finger_geom_ids:
-                    touch_left_finger = True
-                if c.geom1 in self.r_finger_geom_ids and c.geom2 == self.cube_geom_id:
-                    touch_right_finger = True
-                if c.geom1 == self.cube_geom_id and c.geom2 in self.r_finger_geom_ids:
-                    touch_right_finger = True
-            if touch_left_finger and touch_right_finger:
-                reward += 0.25
-
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 2.25
-
-        return reward
 
     def _load_model(self):
         """
@@ -296,12 +261,9 @@ class Ultrasound(RobotEnv):
 
         # Additional object references from this env
         self.cube_body_id = self.sim.model.body_name2id("cube")
-        self.l_finger_geom_ids = [
-            self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["left_finger"]
-        ]
-        self.r_finger_geom_ids = [
-            self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["right_finger"]
-        ]
+        self.probe_geom_ids = [
+            self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["probe"]
+        ] 
         self.cube_geom_id = self.sim.model.geom_name2id("cube")
 
     def _reset_internal(self):

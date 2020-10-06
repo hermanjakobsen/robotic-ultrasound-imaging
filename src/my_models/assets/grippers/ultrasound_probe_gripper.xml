@@ -1,15 +1,20 @@
-<mujoco model="probe">
+<mujoco model="ultrasound_probe_gripper">
   <asset>
     <mesh file="meshes/ultrasound_probe/Probe_holder_C3_8_probe_clean.stl" name="probe_mesh" scale="0.001 0.001 0.001"/>
   </asset>
   <worldbody>
-      <body>
-        <geom name="probe_collision" pos="-0.004 -0.063 0.12" mesh="probe_mesh" type="mesh" mass="1" quat="0 0 0.7071 -0.7071" group="0"/>
-        <geom name="probe_visual" pos="-0.004 -0.063 0.12" mesh="probe_mesh" type="mesh" quat="0 0 0.7071 -0.7071" group="1"/>
+      <body name="gripper_base" pos="-0.004 -0.063 0.12" quat="0 0 0.7071 -0.7071">
+        <site name="ft_frame" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
+        <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="1" group="0"/>
+        <geom name="probe_visual" mesh="probe_mesh" type="mesh" group="1"/>
         <!-- This site was added for visualization. -->
         <site name="grip_site" pos="0 0 0.1050" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
         <!-- This site was added for visualization. -->
         <site name="grip_site_cylinder" pos="0 0 0.1399" size="0.005 10" rgba="0 1 0 0.3" type="cylinder" group="1"/>
     </body>
   </worldbody>
+  <sensor>
+        <force name="force_ee" site="ft_frame"/>
+        <torque name="torque_ee" site="ft_frame"/>
+    </sensor>
 </mujoco>

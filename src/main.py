@@ -4,11 +4,15 @@ from mujoco_py import MjSim, MjViewer, MjSimState
 
 import robosuite as suite
 from robosuite.environments.base import register_env
+from robosuite.models.grippers import GRIPPER_MAPPING, ALL_GRIPPERS
 
 from my_environments import Ultrasound
+from my_models.grippers import UltrasoundProbeGripper
 
 
 def set_initial_state(sim, old_state, robot):
+    ''' Used for setting initial state when simulating with mujoco-py directly '''
+
     old_qvel = old_state.qvel[robot.dof:]
     old_qpos = old_state.qpos[robot.dof:] if robot.gripper.dof < 1 else old_state.qpos[robot.dof-1:]
 
@@ -21,12 +25,50 @@ def set_initial_state(sim, old_state, robot):
     sim.forward()
 
 
+def register_gripper(gripper_class):
+    GRIPPER_MAPPING[gripper_class.__name__] = gripper_class
+    ALL_GRIPPERS = GRIPPER_MAPPING.keys()
+
+
+def robosuite_simulation(env, sim_time):
+    # Reset the env
+    env.reset()
+
+    # Get action limits
+    low, high = env.action_spec
+
+    # Run random policy
+    for t in range(sim_time):
+        if env.done:
+            break
+        env.render()
+        action = np.random.uniform(low, high)
+        observation, reward, done, info = env.step(action)
+
+    # close window
+    env.close()
+
+
+def mujoco_py_simulation(env, sim_time):
+    world = env.model 
+    model = world.get_model(mode="mujoco_py")
+
+    sim = MjSim(model)
+    set_initial_state(sim, sim.get_state(), env.robots[0])
+    viewer = MjViewer(sim)
+
+    for _ in range(sim_time):
+        sim.step()
+        viewer.render()
+ 
+
 register_env(Ultrasound)
+register_gripper(UltrasoundProbeGripper)
 
 env = suite.make(
             'Ultrasound',
-            robots='Panda',
-            gripper_types='PandaGripper',
+            robots='UR5e',
+            gripper_types='UltrasoundProbeGripper',
             has_renderer=True,            # make sure we can render to the screen
             has_offscreen_renderer=False, # not needed since not using pixel obs
             use_camera_obs=False,         # do not use pixel observations
@@ -34,33 +76,5 @@ env = suite.make(
             camera_names='frontview',
         )
 
-
-# Reset the env
-env.reset()
-
-# Get action limits
-low, high = env.action_spec
-
-# Run random policy
-for t in range(5000):
-    env.render()
-    action = np.random.uniform(low, high)
-    observation, reward, done, info = env.step(action)
-
-# close window
-env.close()
-
-'''
-
-# Simulate with mujoco py directly. Does not totally kill my computer hehehh ;) 
-world = env.model 
-model = world.get_model(mode="mujoco_py")
-
-sim = MjSim(model)
-set_initial_state(sim, sim.get_state(), env.robots[0])
-viewer = MjViewer(sim)
-
-for _ in range(5000):
-    sim.step()
-    viewer.render()
-'''
+robosuite_simulation(env, 5000)
+#mujoco_py_simulation(env, 5000)
