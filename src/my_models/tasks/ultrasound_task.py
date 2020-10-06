@@ -112,10 +112,9 @@ class UltrasoundTask(MujocoWorldBase):
 
     def place_objects(self):
         """
-        Places objects randomly until no collisions or max iterations hit.
+        Places objects randomly on table until no collisions or max iterations hit.
         """
-        pos_arr, quat_arr = self.initializer.sample()
+        pos_arr, _ = self.initializer.sample()
         for i in range(len(self.objects)):
             self.objects[i].set("pos", array_to_string(pos_arr[i]))
-            #self.objects[i].set("quat", array_to_string(quat_arr[i]))
-        return pos_arr, quat_arr
+        return pos_arr
