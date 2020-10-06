@@ -12,6 +12,7 @@ from robosuite.models.tasks import  UniformRandomSampler
 
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
+from my_models.objects import SoftTorsoObject
 
 
 class Ultrasound(RobotEnv):
@@ -138,13 +139,7 @@ class Ultrasound(RobotEnv):
         if placement_initializer:
             self.placement_initializer = placement_initializer
         else:
-            self.placement_initializer = UniformRandomSampler(
-                x_range=[-0.03, 0.03],
-                y_range=[-0.03, 0.03],
-                ensure_object_boundary_in_range=False,
-                rotation=None,
-                z_offset=0.01,
-            )
+            self.placement_initializer = UniformRandomSampler()
 
         super().__init__(
             robots=robots,
@@ -166,7 +161,7 @@ class Ultrasound(RobotEnv):
             camera_names=camera_names,
             camera_heights=camera_heights,
             camera_widths=camera_widths,
-            camera_depths=camera_depths,
+            camera_depths=camera_depths
         )
 
     def reward(self, action=None):
@@ -216,29 +211,9 @@ class Ultrasound(RobotEnv):
         self.mujoco_arena.set_origin([0, 0, 0])
 
         # initialize objects of interest
-        tex_attrib = {
-            "type": "cube",
-        }
-        mat_attrib = {
-            "texrepeat": "1 1",
-            "specular": "0.4",
-            "shininess": "0.1",
-        }
-        redwood = CustomMaterial(
-            texture="WoodRed",
-            tex_name="redwood",
-            mat_name="redwood_mat",
-            tex_attrib=tex_attrib,
-            mat_attrib=mat_attrib,
-        )
-        cube = BoxObject(
-            name="cube",
-            size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
-            size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
-            rgba=[1, 0, 0, 1],
-            material=redwood,
-        )
-        self.mujoco_objects = OrderedDict([("cube", cube)])
+        softTorso = SoftTorsoObject()
+
+        self.mujoco_objects = OrderedDict([("soft_torso", softTorso)])
         self.n_objects = len(self.mujoco_objects)
 
         # task includes arena, robot, and objects of interest
@@ -259,28 +234,11 @@ class Ultrasound(RobotEnv):
         """
         super()._get_reference()
 
-        # Additional object references from this env
-        self.cube_body_id = self.sim.model.body_name2id("cube")
-        self.probe_geom_ids = [
-            self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["probe"]
-        ] 
-        self.cube_geom_id = self.sim.model.geom_name2id("cube")
-
     def _reset_internal(self):
         """
         Resets simulation internal configurations.
         """
         super()._reset_internal()
-
-        # Reset all object positions using initializer sampler if we're not directly loading from an xml
-        if not self.deterministic_reset:
-
-            # Sample from the placement initializer for all objects
-            obj_pos, obj_quat = self.model.place_objects()
-
-            # Loop through all objects and reset their positions
-            for i, (obj_name, _) in enumerate(self.mujoco_objects.items()):
-                self.sim.data.set_joint_qpos(obj_name + "_jnt0", np.concatenate([np.array(obj_pos[i]), np.array(obj_quat[i])]))
 
     def _get_observation(self):
         """
@@ -296,65 +254,8 @@ class Ultrasound(RobotEnv):
         """
         di = super()._get_observation()
 
-        # low-level object information
-        if self.use_object_obs:
-            # Get robot prefix
-            pr = self.robots[0].robot_model.naming_prefix
-
-            # position and rotation of object
-            cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
-            cube_quat = convert_quat(
-                np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw"
-            )
-            di["cube_pos"] = cube_pos
-            di["cube_quat"] = cube_quat
-
-            gripper_site_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
-            di[pr + "gripper_to_cube"] = gripper_site_pos - cube_pos
-
-            di["object-state"] = np.concatenate(
-                [cube_pos, cube_quat, di[pr + "gripper_to_cube"]]
-            )
-
         return di
 
-    def _check_success(self):
-        """
-        Check if cube has been lifted.
-        Returns:
-            bool: True if cube has been lifted
-        """
-        cube_height = self.sim.data.body_xpos[self.cube_body_id][2]
-        table_height = self.mujoco_arena.table_offset[2]
-
-        # cube is higher than the table top above a margin
-        return cube_height > table_height + 0.04
-
-    def _visualization(self):
-        """
-        Do any needed visualization here. Overrides superclass implementations.
-        """
-
-        # color the gripper site appropriately based on distance to cube
-        if self.robots[0].gripper_visualization:
-            # get distance to cube
-            cube_site_id = self.sim.model.site_name2id("cube")
-            dist = np.sum(
-                np.square(
-                    self.sim.data.site_xpos[cube_site_id]
-                    - self.sim.data.get_site_xpos(self.robots[0].gripper.visualization_sites["grip_site"])
-                )
-            )
-
-            # set RGBA for the EEF site here
-            max_dist = 0.1
-            scaled = (1.0 - min(dist / max_dist, 1.)) ** 15
-            rgba = np.zeros(4)
-            rgba[0] = 1 - scaled
-            rgba[1] = scaled
-            rgba[3] = 0.5
-
-            self.sim.model.site_rgba[self.robots[0].eef_site_id] = rgba
 
     def _check_robot_configuration(self, robots):
         """

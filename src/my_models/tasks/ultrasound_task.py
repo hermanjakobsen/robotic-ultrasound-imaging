@@ -117,5 +117,5 @@ class UltrasoundTask(MujocoWorldBase):
         pos_arr, quat_arr = self.initializer.sample()
         for i in range(len(self.objects)):
             self.objects[i].set("pos", array_to_string(pos_arr[i]))
-            self.objects[i].set("quat", array_to_string(quat_arr[i]))
+            #self.objects[i].set("quat", array_to_string(quat_arr[i]))
         return pos_arr, quat_arr
