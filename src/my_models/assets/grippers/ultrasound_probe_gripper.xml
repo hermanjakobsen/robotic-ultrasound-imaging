@@ -5,7 +5,7 @@
   <worldbody>
       <body name="gripper_base" pos="-0.004 -0.063 0.12" quat="0 0 0.7071 -0.7071">
         <site name="ft_frame" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
-        <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="100" group="0"/>
+        <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="1" group="0"/>
         <geom name="probe_visual" mesh="probe_mesh" type="mesh" group="1"/>
         <!-- This site was added for visualization. -->
         <site name="grip_site" pos="0 0 0.1050" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>

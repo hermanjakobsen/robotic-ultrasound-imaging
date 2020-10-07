@@ -7,12 +7,11 @@ from robosuite.utils.mjcf_utils import CustomMaterial
 from robosuite.environments.robot_env import RobotEnv
 from robosuite.robots import SingleArm
 
-from robosuite.models.objects import BoxObject
 from robosuite.models.tasks import  UniformRandomSampler
 
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-from my_models.objects import SoftTorsoObject
+from my_models.objects import SoftTorsoObject, TorsoObject
 
 
 class Ultrasound(RobotEnv):
@@ -49,7 +48,7 @@ class Ultrasound(RobotEnv):
         table_friction (3-tuple): the three mujoco friction parameters for
             the table.
         use_camera_obs (bool): if True, every observation includes rendered image(s)
-        use_object_obs (bool): if True, include object (cube) information in
+        use_object_obs (bool): if True, include object (torso) information in
             the observation.
         reward_scale (None or float): Scales the normalized reward function by the amount specified.
             If None, environment reward remains unnormalized
@@ -112,8 +111,8 @@ class Ultrasound(RobotEnv):
         render_camera="frontview",
         render_collision_mesh=False,
         render_visual_mesh=True,
-        control_freq=10,
-        horizon=1000,
+        control_freq=20,
+        horizon=5000,
         ignore_done=False,
         hard_reset=True,
         camera_names="agentview",
@@ -212,16 +211,19 @@ class Ultrasound(RobotEnv):
 
         # initialize objects of interest
         softTorso = SoftTorsoObject()
+        torso = TorsoObject()
 
-        self.mujoco_objects = OrderedDict([("soft_torso", softTorso)])
-        self.n_objects = len(self.mujoco_objects)
+        self.mujoco_objects_on_table = OrderedDict([("soft_torso", softTorso)])
+        self.other_mujoco_objects = OrderedDict([("human_torso", torso)])
+
+        self.n_objects = len(self.mujoco_objects_on_table) + len(self.other_mujoco_objects)
 
         # task includes arena, robot, and objects of interest
         self.model = UltrasoundTask(
             mujoco_arena=self.mujoco_arena, 
             mujoco_robots=[robot.robot_model for robot in self.robots], 
-            mujoco_objects=self.mujoco_objects, 
-            visual_objects=None, 
+            mujoco_objects_on_table=self.mujoco_objects_on_table,
+            other_mujoco_objects=self.other_mujoco_objects,
             initializer=self.placement_initializer,
         )
         self.model.place_objects()

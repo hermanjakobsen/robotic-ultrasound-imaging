@@ -4,7 +4,7 @@ from mujoco_py import MjSim, MjViewer, MjSimState
 
 import robosuite as suite
 from robosuite.environments.base import register_env
-from robosuite.models.grippers import GRIPPER_MAPPING, ALL_GRIPPERS
+from robosuite.models.grippers import GRIPPER_MAPPING
 
 from my_environments import Ultrasound
 from my_models.grippers import UltrasoundProbeGripper
@@ -27,7 +27,6 @@ def set_initial_state(sim, old_state, robot):
 
 def register_gripper(gripper_class):
     GRIPPER_MAPPING[gripper_class.__name__] = gripper_class
-    ALL_GRIPPERS = GRIPPER_MAPPING.keys()
 
 
 def robosuite_simulation(env, sim_time):
@@ -65,16 +64,26 @@ def mujoco_py_simulation(env, sim_time):
 register_env(Ultrasound)
 register_gripper(UltrasoundProbeGripper)
 
+'''
+env_test = suite.make(
+    'Lift',
+    robots='Panda',
+    gripper_types="PandaGripper",
+)
+'''
+
 env = suite.make(
             'Ultrasound',
             robots='UR5e',
             gripper_types='UltrasoundProbeGripper',
-            has_renderer=True,            # make sure we can render to the screen
-            has_offscreen_renderer=False, # not needed since not using pixel obs
-            use_camera_obs=False,         # do not use pixel observations
-            control_freq=50,              # control should happen fast enough so that simulation looks smoother
-            camera_names='frontview',
+            has_renderer = True,
+            has_offscreen_renderer= False,
+            use_camera_obs=False,
+            use_object_obs=False,
+            control_freq = 50,
+            render_camera = None,      
         )
 
-robosuite_simulation(env, 5000)
-#mujoco_py_simulation(env, 5000)
+
+robosuite_simulation(env, env.horizon)
+#mujoco_py_simulation(env_test, env_test.horizon)
