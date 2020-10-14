@@ -16,3 +16,12 @@ class SoftTorsoObject(MujocoXMLObject):
 
     def __init__(self):
         super().__init__("my_models/assets/objects/soft_human_torso.xml")
+
+
+class BoxObject(MujocoXMLObject):
+    """
+    Box object
+    """
+
+    def __init__(self):
+        super().__init__("my_models/assets/objects/box.xml")

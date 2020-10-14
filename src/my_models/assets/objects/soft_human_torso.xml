@@ -5,10 +5,11 @@
   </asset>
   <worldbody>
     <body>
-        <body name="collision" pos="0.6 0 1" quat="0.5 0.5 -0.5 -0.5">
-          <composite type="cylinder" count="7 3 9" spacing="0.06">
+        <freejoint/>
+        <body name="collision" pos="-0.1 0 0.1" quat="0.5 0.5 -0.5 -0.5">
+          <composite type="cylinder" count="7 3 9" spacing="0.06" solimpsmooth="0.9 0.95 0.001 0.9 6">
             <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
-            <skin material="skin-material"/>
+            <skin material="skin-material" texcoord="true"/>
           </composite>
         </body>
         <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.07" name="bottom_site"/>

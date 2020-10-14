@@ -50,18 +50,13 @@ def robosuite_simulation_controller_test(env, sim_time):
     goal_joint_pos = [np.pi / 2, 0, 0, 0, 0, 0]
     kp = 2
     kd = 1.2
-    
-    print(dir(env.robots[0]))
-
     # Run random policy
     for t in range(sim_time):
         if env.done:
             break
-        print(t)
         env.render()
         
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
-
 
         if t > 1200:
             action = relative2absolute_joint_pos_commands([0, -np.pi/4, 0, 0, 0, 0], robot, kp, kd)
@@ -100,9 +95,46 @@ env = suite.make(
             use_camera_obs=False,
             use_object_obs=False,
             control_freq = 50,
-            render_camera = None,      
+            render_camera = None,
+            horizon=2000      
         )
 
 
-robosuite_simulation_controller_test(env, env.horizon)
+#robosuite_simulation_controller_test(env, env.horizon)
 #mujoco_py_simulation(env, env.horizon)
+
+
+############### CODE FOR TESTING THE TUNING OF SOFT TORSO PARAMETERS ###############
+from robosuite.models import MujocoWorldBase
+from robosuite.models.arenas import EmptyArena
+from robosuite.utils.mjcf_utils import new_joint
+
+from my_models.objects import SoftTorsoObject, BoxObject
+
+world = MujocoWorldBase()
+arena = EmptyArena()
+arena.set_origin([0, 0, 0])
+world.merge(arena)
+
+soft_torso = SoftTorsoObject()
+obj = soft_torso.get_collision()
+
+box = BoxObject()
+box_obj = box.get_collision()
+
+obj.append(new_joint(name='soft_torso_free_joint', type='free'))
+box_obj.append(new_joint(name='box_free_joint', type='free'))
+
+world.merge_asset(soft_torso)
+
+world.worldbody.append(obj)
+world.worldbody.append(box_obj)
+model = world.get_model(mode="mujoco_py")
+
+sim = MjSim(model)
+viewer = MjViewer(sim)
+
+
+for i in range(10000):
+  sim.step()
+  viewer.render()
