@@ -10,11 +10,16 @@ from my_models.objects import SoftTorsoObject, BoxObject
 from helper import relative2absolute_joint_pos_commands, set_initial_state
 
 
-def robosuite_simulation_controller_test(env, sim_time):
+def robosuite_simulation_controller_test(env, sim_time, experiment_name):
     # Reset the env
     env.reset()
 
     robot = env.robots[0]
+    joint_pos_obs = np.empty(shape=(env.horizon, robot.dof))
+    ref_values = np.array([np.pi/2, 3*np.pi/2, -np.pi/4])
+
+    time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
+
     goal_joint_pos = [np.pi / 2, 0, 0, 0, 0, 0]
     kp = 2
     kd = 1.2
@@ -26,17 +31,21 @@ def robosuite_simulation_controller_test(env, sim_time):
         
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
-        if t > 1200:
+        if t > 1200*time_scaler:
             action = relative2absolute_joint_pos_commands([0, -np.pi/4, 0, 0, 0, 0], robot, kp, kd)
-        elif t > 800:
+        elif t > 800*time_scaler:
             action = relative2absolute_joint_pos_commands([0, 0, 0, 0, 0, 0], robot, kp, kd)
-        elif t > 400:
+        elif t > 400*time_scaler:
             action = relative2absolute_joint_pos_commands([3*np.pi/2, 0, 0, 0, 0, 0], robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
+        joint_pos_obs[t] = observation['robot0_joint_pos']
 
     # close window
     env.close() 
+
+    np.savetxt('data/'+experiment_name+'_joint_pos_controller_test.csv', joint_pos_obs, delimiter=",")
+    np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
 
 
 def mujoco_py_simulation(env, sim_time):
