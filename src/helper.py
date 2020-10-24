@@ -25,14 +25,17 @@ def register_gripper(gripper_class):
 
 
 def relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd):
-    assert len(goal_joint_pos) == robot.dof
+    assert len(goal_joint_pos) == robot.action_dim
 
-    action = [0 for _ in range(robot.dof)]
+    action = [0 for _ in range(robot.action_dim)]
     curr_joint_pos = robot._joint_positions
     curr_joint_vel = robot._joint_velocities
 
-    for i in range(robot.dof):
-        action[i] = (goal_joint_pos[i] - curr_joint_pos[i]) * kp - curr_joint_vel[i] * kd
+    for i in range(robot.action_dim):
+        if i > len(curr_joint_pos) - 1:
+            action[i] = goal_joint_pos[i]
+        else:    
+            action[i] = (goal_joint_pos[i] - curr_joint_pos[i]) * kp - curr_joint_vel[i] * kd
     
     return action
 

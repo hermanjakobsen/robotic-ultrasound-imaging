@@ -20,7 +20,7 @@ def robosuite_simulation_controller_test(env, sim_time, experiment_name):
 
     time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
-    goal_joint_pos = [np.pi / 2, 0, 0, 0, 0, 0]
+    goal_joint_pos = [ref_values[0], 0, 0, 0, 0, 0]
     kp = 2
     kd = 1.2
 
@@ -32,11 +32,11 @@ def robosuite_simulation_controller_test(env, sim_time, experiment_name):
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
         if t > 1200*time_scaler:
-            action = relative2absolute_joint_pos_commands([0, -np.pi/4, 0, 0, 0, 0], robot, kp, kd)
+            action = relative2absolute_joint_pos_commands([0, ref_values[2], 0, 0, 0, 0], robot, kp, kd)
         elif t > 800*time_scaler:
             action = relative2absolute_joint_pos_commands([0, 0, 0, 0, 0, 0], robot, kp, kd)
         elif t > 400*time_scaler:
-            action = relative2absolute_joint_pos_commands([3*np.pi/2, 0, 0, 0, 0, 0], robot, kp, kd)
+            action = relative2absolute_joint_pos_commands([ref_values[1], 0, 0, 0, 0, 0], robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
         joint_pos_obs[t] = observation['robot0_joint_pos']
@@ -46,6 +46,46 @@ def robosuite_simulation_controller_test(env, sim_time, experiment_name):
 
     np.savetxt('data/'+experiment_name+'_joint_pos_controller_test.csv', joint_pos_obs, delimiter=",")
     np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
+
+
+def robosuite_simulation_contact_btw_probe_and_body(env, sim_time, experiment_name):
+    # Reset the env
+    env.reset() 
+
+    robot = env.robots[0]
+
+    joint_torques = np.empty(shape=(env.horizon, robot.dof))
+    ee_forces = np.empty(shape=(env.horizon, 3))
+    ee_torques = np.empty(shape=(env.horizon, 3))
+    
+    time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
+
+    goal_joint_pos = [0, -np.pi/4, np.pi/3, -np.pi/2, -np.pi/2, 0]
+    kp = 2
+    kd = 1.2
+
+    for t in range(sim_time):
+        if env.done:
+            break
+        env.render()
+        
+        action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
+
+        if t > 400*time_scaler:
+            action = relative2absolute_joint_pos_commands([0, -np.pi/4, np.pi/2, -np.pi/2, -np.pi/2, 0], robot, kp, kd)
+
+        observation, reward, done, info = env.step(action)
+
+        joint_torques[t] = robot.torques
+        ee_forces[t] = robot.ee_force
+        ee_torques[t] = robot.ee_torque
+
+    np.savetxt('data/'+experiment_name+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
+    np.savetxt('data/'+experiment_name+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
+    np.savetxt('data/'+experiment_name+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
+
+    # close window
+    env.close() 
 
 
 def mujoco_py_simulation(env, sim_time):
