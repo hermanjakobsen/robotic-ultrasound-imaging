@@ -57,8 +57,9 @@ def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_d
 
     sim_time = env.horizon
     robot = env.robots[0]
+    num_robot_joints = robot.dof - 1 if robot.gripper.dof > 0 else robot.dof
 
-    joint_torques = np.empty(shape=(sim_time, robot.dof))
+    joint_torques = np.empty(shape=(sim_time, num_robot_joints))
     ee_forces = np.empty(shape=(sim_time, 3))
     ee_torques = np.empty(shape=(sim_time, 3))
     contact = np.empty(shape=(sim_time, 1))
@@ -84,7 +85,8 @@ def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_d
         joint_torques[t] = robot.torques
         ee_forces[t] = robot.ee_force
         ee_torques[t] = robot.ee_torque
-        contact[t] = observation['contact'][0]
+        if robot.has_gripper:
+            contact[t] = observation['contact'][0]
 
     if save_data:
         np.savetxt('data/'+experiment_name+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")

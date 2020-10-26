@@ -31,8 +31,8 @@ env = suite.make(
             horizon=800      
         )
 
-robosuite_simulation_controller_test(env, 'UR5e', save_data=False)
-#robosuite_simulation_contact_btw_probe_and_body(env, 'UR5e', save_data=False)
+#robosuite_simulation_controller_test(env, 'UR5e', save_data=False)
+robosuite_simulation_contact_btw_probe_and_body(env, 'UR5e', save_data=False)
 #mujoco_py_simulation(env)
 #body_softness_test()
 

@@ -277,7 +277,20 @@ class Ultrasound(RobotEnv):
             OrderedDict: Observations from the environment
         """
         di = super()._get_observation()
-        di['contact'] = self._check_gripper_contact()
+
+        robot = self.robots[0]
+
+        if robot.has_gripper:
+            # Remove unused keys (no joints in gripper)
+            if robot.gripper.dof == 0:
+                di.pop('robot0_gripper_qpos', None)
+                di.pop('robot0_gripper_qvel', None)
+
+            di['contact'] = self._check_gripper_contact()
+
+            ee_site_id = robot.eef_site_id
+            di['gripper_pos'] = np.array(self.sim.data.site_xpos[ee_site_id])
+            di['gripper_velp'] = np.array(self.sim.data.site_xvelp[ee_site_id])
 
         return di
 
