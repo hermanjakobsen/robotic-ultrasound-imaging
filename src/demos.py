@@ -10,12 +10,14 @@ from my_models.objects import SoftTorsoObject, BoxObject
 from helper import relative2absolute_joint_pos_commands, set_initial_state
 
 
-def robosuite_simulation_controller_test(env, sim_time, experiment_name):
+def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
     # Reset the env
     env.reset()
 
+    sim_time = env.horizon
+
     robot = env.robots[0]
-    joint_pos_obs = np.empty(shape=(env.horizon, robot.dof))
+    joint_pos_obs = np.empty(shape=(sim_time, robot.dof))
     ref_values = np.array([np.pi/2, 3*np.pi/2, -np.pi/4])
 
     time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
@@ -44,20 +46,22 @@ def robosuite_simulation_controller_test(env, sim_time, experiment_name):
     # close window
     env.close() 
 
-    np.savetxt('data/'+experiment_name+'_joint_pos_controller_test.csv', joint_pos_obs, delimiter=",")
-    np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
+    if save_data:
+        np.savetxt('data/'+experiment_name+'_joint_pos_controller_test.csv', joint_pos_obs, delimiter=",")
+        np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
 
 
-def robosuite_simulation_contact_btw_probe_and_body(env, sim_time, experiment_name):
+def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_data=False):
     # Reset the env
     env.reset() 
 
+    sim_time = env.horizon
     robot = env.robots[0]
 
-    joint_torques = np.empty(shape=(env.horizon, robot.dof))
-    ee_forces = np.empty(shape=(env.horizon, 3))
-    ee_torques = np.empty(shape=(env.horizon, 3))
-    contact = np.empty(shape=(env.horizon, 1))
+    joint_torques = np.empty(shape=(sim_time, robot.dof))
+    ee_forces = np.empty(shape=(sim_time, 3))
+    ee_torques = np.empty(shape=(sim_time, 3))
+    contact = np.empty(shape=(sim_time, 1))
     
     time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
@@ -82,16 +86,17 @@ def robosuite_simulation_contact_btw_probe_and_body(env, sim_time, experiment_na
         ee_torques[t] = robot.ee_torque
         contact[t] = observation['contact'][0]
 
-    np.savetxt('data/'+experiment_name+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
-    np.savetxt('data/'+experiment_name+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
-    np.savetxt('data/'+experiment_name+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
-    np.savetxt('data/'+experiment_name+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
+    if save_data:
+        np.savetxt('data/'+experiment_name+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
+        np.savetxt('data/'+experiment_name+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
+        np.savetxt('data/'+experiment_name+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
+        np.savetxt('data/'+experiment_name+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
 
     # close window
     env.close() 
 
 
-def mujoco_py_simulation(env, sim_time):
+def mujoco_py_simulation(env):
     world = env.model 
     model = world.get_model(mode="mujoco_py")
 
@@ -99,7 +104,7 @@ def mujoco_py_simulation(env, sim_time):
     set_initial_state(sim, sim.get_state(), env.robots[0])
     viewer = MjViewer(sim)
 
-    for _ in range(sim_time):
+    for _ in range(env.horizon):
         sim.step()
         viewer.render()
 
