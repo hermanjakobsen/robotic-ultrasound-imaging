@@ -57,6 +57,7 @@ def robosuite_simulation_contact_btw_probe_and_body(env, sim_time, experiment_na
     joint_torques = np.empty(shape=(env.horizon, robot.dof))
     ee_forces = np.empty(shape=(env.horizon, 3))
     ee_torques = np.empty(shape=(env.horizon, 3))
+    contact = np.empty(shape=(env.horizon, 1))
     
     time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
@@ -72,17 +73,19 @@ def robosuite_simulation_contact_btw_probe_and_body(env, sim_time, experiment_na
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
         if t > 400*time_scaler:
-            action = relative2absolute_joint_pos_commands([0, -np.pi/4, np.pi/2, -np.pi/2, -np.pi/2, 0], robot, kp, kd)
+            action = relative2absolute_joint_pos_commands([0, -np.pi/4, np.pi, -np.pi/2, -np.pi/2, 0], robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
 
         joint_torques[t] = robot.torques
         ee_forces[t] = robot.ee_force
         ee_torques[t] = robot.ee_torque
+        contact[t] = observation['contact'][0]
 
     np.savetxt('data/'+experiment_name+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
     np.savetxt('data/'+experiment_name+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
     np.savetxt('data/'+experiment_name+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
+    np.savetxt('data/'+experiment_name+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
 
     # close window
     env.close() 

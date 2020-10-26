@@ -60,4 +60,24 @@ def plot_joint_pos(joint_pos_filepath):
     plt.title('Test for joint position controller')
     plt.show()
 
+def plot_forces_and_contact(forces_filepath, contact_filepath):
+    contact = np.genfromtxt(contact_filepath, delimiter=',')
+    forces = np.genfromtxt(forces_filepath, delimiter=',')
+
+    t = np.array([i for i in range(contact.shape[0])])
+    axes = ['x', 'y', 'z']
+
+    plt.figure()
+    for i in range(forces.shape[1]):
+        force = forces[:, i]
+        plt.plot(t, force, label='force_' + axes[i])
+    
+    plt.plot(t, contact, label='contact')
+    plt.grid()
+    plt.legend()
+    plt.title('Test for contact between gripper and object')
+    plt.show()
+
+
+
 

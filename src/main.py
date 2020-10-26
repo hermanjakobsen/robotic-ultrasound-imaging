@@ -4,8 +4,12 @@ from robosuite import load_controller_config
 
 from my_environments import Ultrasound
 from my_models.grippers import UltrasoundProbeGripper
-from helper import register_gripper, plot_joint_pos
-from demos import robosuite_simulation_controller_test, robosuite_simulation_contact_btw_probe_and_body, mujoco_py_simulation, body_softness_test
+from helper import register_gripper, plot_joint_pos, plot_forces_and_contact
+from demos import robosuite_simulation_controller_test, \
+    robosuite_simulation_contact_btw_probe_and_body, \
+    mujoco_py_simulation, \
+    body_softness_test
+    
                     
 
 register_env(Ultrasound)
@@ -33,3 +37,4 @@ robosuite_simulation_contact_btw_probe_and_body(env, env.horizon, 'UR5e')
 #body_softness_test()
 
 #plot_joint_pos('data/UR5e_joint_pos_controller_test.csv')
+#plot_forces_and_contact('data/UR5e_ee_forces_contact_btw_probe_and_body.csv', 'data/UR5e_contact_contact_btw_probe_and_body.csv')

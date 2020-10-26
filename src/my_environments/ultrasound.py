@@ -213,8 +213,8 @@ class Ultrasound(RobotEnv):
         softTorso = SoftTorsoObject()
         torso = TorsoObject()
 
-        self.mujoco_objects_on_table = OrderedDict([("soft_torso", softTorso)])
-        self.other_mujoco_objects = OrderedDict([("human_torso", torso)])
+        self.mujoco_objects_on_table = OrderedDict([('soft_torso', softTorso)])
+        self.other_mujoco_objects = OrderedDict([('human_torso', torso)])
 
         self.n_objects = len(self.mujoco_objects_on_table) + len(self.other_mujoco_objects)
 
@@ -235,12 +235,34 @@ class Ultrasound(RobotEnv):
         in a flatten array, which is how MuJoCo stores physical simulation data.
         """
         super()._get_reference()
+        #self.torso_body_id = self.sim.model.body_name2id('B3_2_4') # approx middle body
+        #self.torso_geom_id = self.sim.model.geom_name2id('G3_2_4')
 
     def _reset_internal(self):
         """
         Resets simulation internal configurations.
         """
         super()._reset_internal()
+
+    def _check_gripper_contact(self):
+        """
+        Checks whether each gripper is in contact with an object.
+        Returns:
+            list of bool: True if the specific gripper is in contact with an object
+        """
+        collisions = [False] * self.num_robots
+        for idx, robot in enumerate(self.robots):
+            for contact in self.sim.data.contact[: self.sim.data.ncon]:
+                if (
+                    self.sim.model.geom_id2name(contact.geom1)
+                    in robot.gripper.contact_geoms
+                    or self.sim.model.geom_id2name(contact.geom2)
+                    in robot.gripper.contact_geoms
+                ):
+                    collisions[idx] = True
+                    break
+
+        return collisions
 
     def _get_observation(self):
         """
@@ -255,6 +277,7 @@ class Ultrasound(RobotEnv):
             OrderedDict: Observations from the environment
         """
         di = super()._get_observation()
+        di['contact'] = self._check_gripper_contact()
 
         return di
 
