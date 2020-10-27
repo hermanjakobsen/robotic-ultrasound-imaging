@@ -10,8 +10,8 @@
         <body name="collision" pos="0 0.1 0.87" quat="0.5 0.5 -0.5 -0.5">
         <!--Used for body softness test-->
         <!--body name="collision" pos="-0.1 0 0.1" quat="0.5 0.5 -0.5 -0.5"-->
-          <composite type="cylinder" count="7 3 9" spacing="0.06" solrefsmooth="-4 -2">
-            <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1" contype="0"/>
+          <composite type="cylinder" count="9 4 11" spacing="0.035" solrefsmooth="-1 -1">
+            <geom type="capsule" size=".0075 0.025" rgba=".8 .2 .1 1" contype="0"/>
             <skin material="skin-material" texcoord="true"/>
           </composite>
         </body>
@@ -20,4 +20,4 @@
         <site rgba="0 0 0 0" size="0.005" pos="0.2 0.2 0" name="horizontal_radius_site"/>
     </body>
   </worldbody>
-</mujoco>
+</mujoco> 
