@@ -6,9 +6,12 @@
   <worldbody>
     <body>
         <freejoint/>
-        <body name="collision" pos="-0.1 0 0.1" quat="0.5 0.5 -0.5 -0.5">
-          <composite type="cylinder" count="7 3 9" spacing="0.06" solimpsmooth="0.9 0.95 0.001 0.9 6">
-            <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1"/>
+        <!--Used for contact demo-->
+        <body name="collision" pos="0 0.1 0.87" quat="0.5 0.5 -0.5 -0.5">
+        <!--Used for body softness test-->
+        <!--body name="collision" pos="-0.1 0 0.1" quat="0.5 0.5 -0.5 -0.5"-->
+          <composite type="cylinder" count="7 3 9" spacing="0.06" solrefsmooth="-4 -2">
+            <geom type="capsule" size=".015 0.05" rgba=".8 .2 .1 1" contype="0"/>
             <skin material="skin-material" texcoord="true"/>
           </composite>
         </body>
