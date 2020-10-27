@@ -11,7 +11,7 @@ from robosuite.models.tasks import  UniformRandomSampler
 
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-from my_models.objects import SoftTorsoObject, TorsoObject
+from my_models.objects import SoftTorsoObject
 
 
 class Ultrasound(RobotEnv):
@@ -211,10 +211,9 @@ class Ultrasound(RobotEnv):
 
         # initialize objects of interest
         softTorso = SoftTorsoObject()
-        torso = TorsoObject()
 
-        self.mujoco_objects_on_table = OrderedDict([('soft_torso', softTorso)])
-        self.other_mujoco_objects = OrderedDict([('human_torso', torso)])
+        self.mujoco_objects_on_table = OrderedDict([])#('soft_torso', softTorso)])
+        self.other_mujoco_objects = OrderedDict([('soft_torso', softTorso)])
 
         self.n_objects = len(self.mujoco_objects_on_table) + len(self.other_mujoco_objects)
 
@@ -281,16 +280,17 @@ class Ultrasound(RobotEnv):
         robot = self.robots[0]
 
         if robot.has_gripper:
-            # Remove unused keys (no joints in gripper)
+            
             if robot.gripper.dof == 0:
+                # Remove unused keys (no joints in gripper)
                 di.pop('robot0_gripper_qpos', None)
                 di.pop('robot0_gripper_qvel', None)
 
-            di['contact'] = self._check_gripper_contact()
+                di['gripper_pos'] = np.array(self.sim.data.site_xpos[robot.eef_site_id])
+                di['gripper_velp'] = np.array(self.sim.data.site_xvelp[robot.eef_site_id])
+                di['gripper_quat'] = convert_quat(self.sim.data.get_body_xquat('gripper0_gripper_base'), to="xyzw")
 
-            ee_site_id = robot.eef_site_id
-            di['gripper_pos'] = np.array(self.sim.data.site_xpos[ee_site_id])
-            di['gripper_velp'] = np.array(self.sim.data.site_xvelp[ee_site_id])
+            di['contact'] = self._check_gripper_contact()
 
         return di
 
