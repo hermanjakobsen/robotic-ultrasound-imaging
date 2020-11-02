@@ -67,6 +67,7 @@ def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_d
     time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
     goal_joint_pos = [0, -np.pi/4, np.pi/3, -np.pi/2, -np.pi/2, 0]
+    goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
     kp = 2
     kd = 1.2
 
@@ -78,7 +79,10 @@ def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_d
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
         if t > 400*time_scaler:
-            action = relative2absolute_joint_pos_commands([0, -np.pi/4, np.pi, -np.pi/2, -np.pi/2, 0], robot, kp, kd)
+            goal_joint_pos = [0, -np.pi/4, np.pi, -np.pi/2, -np.pi/2, 0]
+            goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
+
+            action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
 

@@ -252,15 +252,27 @@ class Ultrasound(RobotEnv):
         collisions = [False] * self.num_robots
         for idx, robot in enumerate(self.robots):
             for contact in self.sim.data.contact[: self.sim.data.ncon]:
-                if (
-                    self.sim.model.geom_id2name(contact.geom1)
-                    in robot.gripper.contact_geoms
-                    or self.sim.model.geom_id2name(contact.geom2)
-                    in robot.gripper.contact_geoms
-                ):
-                    collisions[idx] = True
-                    break
-
+                # Single arm case
+                if robot.robot_model.arm_type == "single":
+                    if (
+                        self.sim.model.geom_id2name(contact.geom1)
+                        in robot.gripper.contact_geoms
+                        or self.sim.model.geom_id2name(contact.geom2)
+                        in robot.gripper.contact_geoms
+                    ):
+                        collisions[idx] = True
+                        break
+                # Bimanual case
+                else:
+                    for arm in robot.arms:
+                        if (
+                                self.sim.model.geom_id2name(contact.geom1)
+                                in robot.gripper[arm].contact_geoms
+                                or self.sim.model.geom_id2name(contact.geom2)
+                                in robot.gripper[arm].contact_geoms
+                        ):
+                            collisions[idx] = True
+                            break
         return collisions
 
     def _get_observation(self):
