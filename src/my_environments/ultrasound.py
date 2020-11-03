@@ -293,13 +293,13 @@ class Ultrasound(RobotEnv):
 
         if robot.has_gripper:
             
+            # Checking if the UltrasoundProbeGripper is used
             if robot.gripper.dof == 0:
                 # Remove unused keys (no joints in gripper)
                 di.pop('robot0_gripper_qpos', None)
                 di.pop('robot0_gripper_qvel', None)
-
-                di['gripper_pos'] = np.array(self.sim.data.site_xpos[robot.eef_site_id])
-                di['gripper_velp'] = np.array(self.sim.data.site_xvelp[robot.eef_site_id])
+                di['gripper_pos'] = np.array(self.sim.data.get_body_xpos('gripper0_gripper_base'))
+                di['gripper_velp'] = np.array(self.sim.data.get_body_xvelp('gripper0_gripper_base'))
                 di['gripper_quat'] = convert_quat(self.sim.data.get_body_xquat('gripper0_gripper_base'), to="xyzw")
 
             di['contact'] = self._check_gripper_contact()
