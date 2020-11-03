@@ -40,6 +40,14 @@ def relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd):
     return action
 
 
+def transform_ee_frame_axes(measurement):
+    # Want z-axis pointing out of probe
+    # x (pandaGripper) = -x (probe)
+    # y (pandaGripper) = -z (probe)
+    # z (pandaGripper) = -y (probe)
+    return np.array([-measurement[0], -measurement[2], -measurement[1]])
+
+
 def plot_joint_pos(joint_pos_filepath):
     joint_pos = np.genfromtxt(joint_pos_filepath, delimiter=',')
     ref_values = np.genfromtxt(joint_pos_filepath.replace('joint_pos', 'ref_values'), delimiter=',')

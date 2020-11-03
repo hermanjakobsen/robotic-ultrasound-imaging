@@ -7,7 +7,7 @@ from robosuite.models.arenas import EmptyArena
 from robosuite.utils.mjcf_utils import new_joint
 
 from my_models.objects import SoftTorsoObject, BoxObject
-from helper import relative2absolute_joint_pos_commands, set_initial_state
+from helper import relative2absolute_joint_pos_commands, set_initial_state, transform_ee_frame_axes
 
 
 def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
@@ -86,9 +86,9 @@ def robosuite_simulation_contact_btw_probe_and_body(env, experiment_name, save_d
 
         observation, reward, done, info = env.step(action)
 
-        joint_torques[t] = robot.torques
-        ee_forces[t] = robot.ee_force
-        ee_torques[t] = robot.ee_torque
+        joint_torques[t] = robot.torques 
+        ee_forces[t] = transform_ee_frame_axes(robot.ee_force) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_force
+        ee_torques[t] = transform_ee_frame_axes(robot.ee_torque) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_torque
         if robot.has_gripper:
             contact[t] = observation['contact'][0]
 
