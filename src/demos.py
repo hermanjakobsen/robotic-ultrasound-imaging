@@ -7,7 +7,7 @@ from robosuite.models.arenas import EmptyArena
 from robosuite.utils.mjcf_utils import new_joint
 
 from my_models.objects import SoftTorsoObject, BoxObject
-from helper import relative2absolute_joint_pos_commands, set_initial_state, transform_ee_frame_axes
+from helper import relative2absolute_joint_pos_commands, set_initial_robot_state, transform_ee_frame_axes
 
 
 def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
@@ -107,7 +107,7 @@ def mujoco_py_simulation(env):
     model = world.get_model(mode="mujoco_py")
 
     sim = MjSim(model)
-    set_initial_state(sim, sim.get_state(), env.robots[0])
+    set_initial_robot_state(sim, env.robots[0])
     viewer = MjViewer(sim)
 
     for _ in range(env.horizon):
@@ -139,7 +139,7 @@ def body_softness_test():
     sim = MjSim(model)
     viewer = MjViewer(sim)
 
-
     for _ in range(10000):
+   
         sim.step()
         viewer.render()

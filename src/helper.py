@@ -5,17 +5,19 @@ from fractions import Fraction
 from mujoco_py import MjSimState
 from robosuite.models.grippers import GRIPPER_MAPPING
 
-def set_initial_state(sim, old_state, robot):
+def set_initial_robot_state(sim, robot):
     ''' Used for setting initial state when simulating with mujoco-py directly '''
+
+    old_state = sim.get_state()
 
     old_qvel = old_state.qvel[robot.dof:]
     old_qpos = old_state.qpos[robot.dof:] if robot.gripper.dof < 1 else old_state.qpos[robot.dof-1:]
 
     init_qvel = [0 for _ in range(robot.dof)]
-    initial_model_qvel = np.concatenate((init_qvel, old_qvel), axis=0)
-    initial_model_qpos = np.concatenate((robot.init_qpos, old_qpos), axis=0)
+    init_model_qvel = np.concatenate((init_qvel, old_qvel), axis=0)
+    init_model_qpos = np.concatenate((robot.init_qpos, old_qpos), axis=0)
         
-    new_state = MjSimState(old_state.time, initial_model_qpos, initial_model_qvel, old_state.act, old_state.udd_state)
+    new_state = MjSimState(old_state.time, init_model_qpos, init_model_qvel, old_state.act, old_state.udd_state)
     sim.set_state(new_state)
     sim.forward()
 
