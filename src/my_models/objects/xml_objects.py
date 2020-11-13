@@ -31,7 +31,7 @@ class SoftTorsoObject(MujocoXMLObject):
 
     def _get_composite_element(self):
         collision = self.worldbody.find("./body/body[@name='collision']")
-        return collision.find("./composite[@name='soft_body']")
+        return collision.find("./composite")
 
 
     def _set_damping(self, damping):
