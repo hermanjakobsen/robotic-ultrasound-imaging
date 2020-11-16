@@ -34,7 +34,7 @@ class SoftTorsoObject(MujocoXMLObject):
         return collision.find("./composite")
 
 
-    def _set_damping(self, damping):
+    def set_damping(self, damping):
         """
         Helper function to override the soft body's damping directly in the XML
         Args:
@@ -50,7 +50,7 @@ class SoftTorsoObject(MujocoXMLObject):
         composite.set('solrefsmooth', array_to_string(solref))
 
 
-    def _set_stiffness(self, stiffness):
+    def set_stiffness(self, stiffness):
         """
         Helper function to override the soft body's stiffness directly in the XML
         Args:

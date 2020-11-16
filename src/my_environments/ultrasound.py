@@ -217,8 +217,8 @@ class Ultrasound(RobotEnv):
         rand_damp_idx = int(np.random.choice(damping.shape[0], 1, replace=False))
         rand_stiff_idx = int(np.random.choice(stiffness.shape[0], 1, replace=False))
 
-        soft_torso._set_damping(damping[rand_damp_idx])
-        soft_torso._set_stiffness(stiffness[rand_stiff_idx])
+        soft_torso.set_damping(damping[rand_damp_idx])
+        soft_torso.set_stiffness(stiffness[rand_stiff_idx])
 
         self.mujoco_objects_on_table = OrderedDict([])#('soft_torso', soft_torso)])
         self.other_mujoco_objects = OrderedDict([('soft_torso', soft_torso)])
