@@ -1,18 +1,34 @@
 import numpy as np
 import glfw
 
-from mujoco_py import MjSim, MjViewer
-
 import robosuite as suite
 from robosuite.models import MujocoWorldBase
 from robosuite.models.arenas import EmptyArena
-from robosuite.utils.mjcf_utils import new_joint
+from robosuite.utils.mjcf_utils import new_joint, array_to_string
+
+from mujoco_py import MjSim, MjViewer
 
 from my_models.objects import SoftTorsoObject, BoxObject
-from helper import relative2absolute_joint_pos_commands, set_initial_robot_state, transform_ee_frame_axes
+from helper import relative2absolute_joint_pos_commands, set_initial_robot_state, \
+    transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params
 
 
-def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
+def controller_demo(experiment_name, save_data=False):
+    
+    env = suite.make(
+            'Ultrasound',
+            robots='UR5e',
+            controller_configs=None,
+            gripper_types=None,
+            has_renderer = True,
+            has_offscreen_renderer= False,
+            use_camera_obs=False,
+            use_object_obs=False,
+            control_freq = 50,
+            render_camera = None,
+            horizon=1600      
+        )
+
     # Reset the env
     env.reset()
 
@@ -21,8 +37,6 @@ def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
     robot = env.robots[0]
     joint_pos_obs = np.empty(shape=(sim_time, robot.dof))
     ref_values = np.array([np.pi/2, 3*np.pi/2, -np.pi/4])
-
-    time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
     goal_joint_pos = [ref_values[0], 0, 0, 0, 0, 0]
     kp = 2
@@ -35,11 +49,11 @@ def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
         
         action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
-        if t > 1200*time_scaler:
+        if t > 1200:
             action = relative2absolute_joint_pos_commands([0, ref_values[2], 0, 0, 0, 0], robot, kp, kd)
-        elif t > 800*time_scaler:
+        elif t > 800:
             action = relative2absolute_joint_pos_commands([0, 0, 0, 0, 0, 0], robot, kp, kd)
-        elif t > 400*time_scaler:
+        elif t > 350:
             action = relative2absolute_joint_pos_commands([ref_values[1], 0, 0, 0, 0, 0], robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
@@ -53,9 +67,9 @@ def robosuite_simulation_controller_test(env, experiment_name, save_data=False):
         np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
 
 
-def robosuite_simulation_contact_btw_probe_and_body(experiment_name, save_data=False):
+def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
     
-    for episode in range(3):
+    for episode in range(episodes):
         env = suite.make(
             'Ultrasound',
             robots='UR5e',
@@ -67,7 +81,7 @@ def robosuite_simulation_contact_btw_probe_and_body(experiment_name, save_data=F
             use_object_obs=False,
             control_freq = 50,
             render_camera = None,
-            horizon=200      
+            horizon=1000      
         )
     
         # Reset the env
@@ -81,8 +95,6 @@ def robosuite_simulation_contact_btw_probe_and_body(experiment_name, save_data=F
         ee_forces = np.empty(shape=(sim_time, 3))
         ee_torques = np.empty(shape=(sim_time, 3))
         contact = np.empty(shape=(sim_time, 1))
-        
-        time_scaler = 3 if robot.controller_config['type'] == 'JOINT_POSITION' else 1
 
         goal_joint_pos = [0, -np.pi/4, np.pi/3, -np.pi/2, -np.pi/2, 0]
         goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
@@ -96,7 +108,7 @@ def robosuite_simulation_contact_btw_probe_and_body(experiment_name, save_data=F
             
             action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
 
-            if t > 400*time_scaler:
+            if t > 400:
                 goal_joint_pos = [0, -np.pi/4, np.pi, -np.pi/2, -np.pi/2, 0]
                 goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
 
@@ -120,29 +132,28 @@ def robosuite_simulation_contact_btw_probe_and_body(experiment_name, save_data=F
         env.close() 
 
 
-def mujoco_py_simulation(env):
-    sim, viewer = create_sim_and_viewer(env)
+def standard_mujoco_py_demo():
+
+    env = suite.make(
+            'Ultrasound',
+            robots='UR5e',
+            controller_configs=None,
+            gripper_types='UltrasoundProbeGripper',
+            has_renderer = True,
+            has_offscreen_renderer= False,
+            use_camera_obs=False,
+            use_object_obs=False,
+            control_freq = 50,
+            render_camera = None,
+            horizon=500      
+        )
+
+    sim, viewer = create_mjsim_and_viewer(env)
 
     for _ in range(env.horizon):
         sim.step()
         viewer.render()
         
-
-def create_sim_and_viewer(env):
-    world = env.model 
-
-    soft_torso = world.other_mujoco_objects['soft_torso']
-    composite = soft_torso._get_composite_element()
-    #print(composite.get('solrefsmooth'))
-   # print(world.get_xml())
-
-    model = world.get_model(mode="mujoco_py")
-    sim = MjSim(model)
-    set_initial_robot_state(sim, env.robots[0])
-    viewer = MjViewer(sim)
-
-    return sim, viewer
-
 
 def change_parameters_of_soft_body_demo(episodes):
  
@@ -162,7 +173,9 @@ def change_parameters_of_soft_body_demo(episodes):
             horizon=800      
         )
 
-        sim, viewer = create_sim_and_viewer(env)
+        print_world_xml_and_soft_torso_params(env.model)
+
+        sim, viewer = create_mjsim_and_viewer(env)
     
         for _ in range(env.horizon):
             sim.step()
@@ -171,7 +184,7 @@ def change_parameters_of_soft_body_demo(episodes):
         glfw.destroy_window(viewer.window)
 
 
-def body_softness_test():
+def drop_cube_on_body_demo():
     world = MujocoWorldBase()
     arena = EmptyArena()
     arena.set_origin([0, 0, 0])
@@ -190,8 +203,12 @@ def body_softness_test():
 
     world.worldbody.append(obj)
     world.worldbody.append(box_obj)
-    model = world.get_model(mode="mujoco_py")
 
+    # Place torso on ground
+    collision_soft_torso = world.worldbody.find("./body")
+    collision_soft_torso.set("pos", array_to_string(np.array([-0.1, 0, 0.1])))
+
+    model = world.get_model(mode="mujoco_py")
     sim = MjSim(model)
     viewer = MjViewer(sim)
 

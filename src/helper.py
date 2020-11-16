@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from fractions import Fraction
 
-from mujoco_py import MjSimState
+from mujoco_py import MjSimState, MjSim, MjViewer
+
 from robosuite.models.grippers import GRIPPER_MAPPING
+
 
 def set_initial_robot_state(sim, robot):
     ''' Used for setting initial state when simulating with mujoco-py directly '''
@@ -50,6 +52,23 @@ def transform_ee_frame_axes(measurement):
     return np.array([-measurement[0], -measurement[2], -measurement[1]])
 
 
+def print_world_xml_and_soft_torso_params(world):
+    soft_torso = world.other_mujoco_objects['soft_torso']
+    composite = soft_torso._get_composite_element()
+    print(composite.get('solrefsmooth'))
+    print(world.get_xml())
+
+
+def create_mjsim_and_viewer(env):
+    world = env.model 
+
+    model = world.get_model(mode="mujoco_py")
+    sim = MjSim(model)
+    set_initial_robot_state(sim, env.robots[0])
+    viewer = MjViewer(sim)
+
+    return sim, viewer
+
 def plot_joint_pos(joint_pos_filepath):
     joint_pos = np.genfromtxt(joint_pos_filepath, delimiter=',')
     ref_values = np.genfromtxt(joint_pos_filepath.replace('joint_pos', 'ref_values'), delimiter=',')
@@ -69,6 +88,7 @@ def plot_joint_pos(joint_pos_filepath):
     plt.legend()
     plt.title('Test for joint position controller')
     plt.show()
+
 
 def plot_forces_and_contact(forces_filepath, contact_filepath):
     contact = np.genfromtxt(contact_filepath, delimiter=',')
