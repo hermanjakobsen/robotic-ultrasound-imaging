@@ -2,7 +2,7 @@
   <worldbody>
     <body>
       <body name="collision">
-        <geom pos="-0.1 0 1" type="box" mass="5" size="0.1 0.1 0.1" group="1"/>
+        <geom name="box" pos="-0.25 0 1" type="box" mass="0.5" size="0.05 0.05 0.05" group="1"/>
       </body>
       <body name="visual">
         <geom pos="0 0 0" type="box"  group="1" mass="0.0001"/>
