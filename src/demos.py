@@ -5,12 +5,14 @@ import robosuite as suite
 from robosuite.models import MujocoWorldBase
 from robosuite.models.arenas import EmptyArena
 from robosuite.utils.mjcf_utils import new_joint, array_to_string
+from robosuite.wrappers import GymWrapper
 
 from mujoco_py import MjSim, MjViewer
 
 from my_models.objects import SoftTorsoObject, BoxObject
 from helper import relative2absolute_joint_pos_commands, set_initial_robot_state, \
-    transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params
+    transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params, \
+    capture_image_frame
 
 
 def controller_demo(experiment_name, save_data=False):
@@ -25,8 +27,8 @@ def controller_demo(experiment_name, save_data=False):
             use_camera_obs=False,
             use_object_obs=False,
             control_freq = 50,
-            render_camera = None,
-            horizon=1600      
+            render_camera = 'sideview',
+            horizon=1600    
         )
 
     # Reset the env
@@ -182,6 +184,32 @@ def change_parameters_of_soft_body_demo(episodes):
             viewer.render()
         
         glfw.destroy_window(viewer.window)
+
+
+def fetch_push_gym_demo():
+    env = GymWrapper(
+        suite.make(
+            'FetchPush',
+            robots='Panda',
+            controller_configs=None,
+            gripper_types='UltrasoundProbeGripper',
+            has_renderer = True,
+            has_offscreen_renderer= False,
+            use_camera_obs=False,
+            use_object_obs=True,
+            control_freq = 50,
+            render_camera = None,
+        )
+    )
+    for i_episode in range(20):
+        observation = env.reset()
+        for t in range(500):
+            env.render()
+            action = env.action_space.sample()
+            observation, reward, done, info = env.step(action)
+            if done:
+                print("Episode finished after {} timesteps".format(t + 1))
+                break
 
 
 def drop_cube_on_body_demo():
