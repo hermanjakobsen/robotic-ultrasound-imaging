@@ -69,6 +69,14 @@ def create_mjsim_and_viewer(env):
 
     return sim, viewer
 
+
+def capture_image_frame(viewer, folderpath):
+    # better solution would be to use off-screen renderer.  
+    img = viewer._read_pixels_as_in_window()
+    plt.imsave(folderpath + 'frame'+ '{0:06}'.format(viewer._image_idx) + '.png', img)
+    viewer._image_idx += 1
+
+
 def plot_joint_pos(joint_pos_filepath):
     joint_pos = np.genfromtxt(joint_pos_filepath, delimiter=',')
     ref_values = np.genfromtxt(joint_pos_filepath.replace('joint_pos', 'ref_values'), delimiter=',')
