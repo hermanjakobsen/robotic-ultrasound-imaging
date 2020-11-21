@@ -4,6 +4,10 @@ import os.path as osp
 import tensorflow as tf
 import numpy as np
 
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
+
 from robosuite.environments.base import register_env
 from robosuite import load_controller_config
 from robosuite.wrappers import GymWrapper
@@ -61,14 +65,14 @@ env = VecNormalize(env)
 
 network='mlp'
 seed = None
-'''
-model = learn(network=network, env=env, seed=seed, total_timesteps=2e4)
+
+model = learn(network=network, env=env, seed=seed, total_timesteps=2e6)
 
 save_path = osp.expanduser('trained_models/')
 ckpt = tf.train.Checkpoint(model=model)
 manager = tf.train.CheckpointManager(ckpt, save_path, max_to_keep=None)
 manager.save()
-'''
+
 # Train loaded model for zero timesteps (i.e. load trained model)
 model = learn(network=network, env=env, seed=seed, total_timesteps=0, load_path='trained_models/')
 
@@ -87,6 +91,7 @@ env_robo = GymWrapper(
         render_camera = None,
     )
 )
+env = DummyVecEnv([env_robo])
 
 
 print("Running trained model")
@@ -103,7 +108,8 @@ while True:
     else:
         actions, _, _, _ = model.step(obs)
 
-    obs, rew, done, _ = env_robo.step(actions)
+
+    obs, rew, done, _ = env.step(actions)
     episode_rew += rew
     env_robo.render()
     done_any = done.any() if isinstance(done, np.ndarray) else done
