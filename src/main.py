@@ -14,6 +14,7 @@ from robosuite.wrappers import GymWrapper
 
 from baselines.ppo2.ppo2 import learn
 from baselines.common.vec_env import DummyVecEnv, VecEnv, VecNormalize
+from baselines.bench import Monitor
 
 from my_environments import Ultrasound, FetchPush
 from my_models.grippers import UltrasoundProbeGripper
@@ -58,7 +59,8 @@ env_robo = GymWrapper(
         render_camera = None,
     )
 )
-env = DummyVecEnv([env_robo])
+env = Monitor(env_robo, None)
+env = DummyVecEnv([lambda: env])
 env = VecNormalize(env)
 
 # Training
@@ -91,7 +93,8 @@ env_robo = GymWrapper(
         render_camera = None,
     )
 )
-env = DummyVecEnv([env_robo])
+env = Monitor(env_robo, None)
+env = DummyVecEnv([lambda: env])
 
 
 print("Running trained model")
