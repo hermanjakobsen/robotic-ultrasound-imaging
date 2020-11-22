@@ -192,7 +192,7 @@ class FetchPush(RobotEnv):
 
         # sparse completion reward
         if self._check_success():
-            reward = 2.25
+            reward += 2.25
 
         # use a shaping reward
         elif self.reward_shaping:
