@@ -4,6 +4,7 @@ import os.path as osp
 import tensorflow as tf
 import numpy as np
 
+# Used to remove Cudlas status error
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
@@ -59,7 +60,7 @@ env_robo = GymWrapper(
         render_camera = None,
     )
 )
-env = Monitor(env_robo, None)
+env = Monitor(env_robo, None, allow_early_resets=True)
 env = DummyVecEnv([lambda: env])
 env = VecNormalize(env)
 
@@ -70,13 +71,13 @@ seed = None
 
 model = learn(network=network, env=env, seed=seed, total_timesteps=2e6)
 
-save_path = osp.expanduser('trained_models/')
+save_path = osp.expanduser('trained_models/test/')
 ckpt = tf.train.Checkpoint(model=model)
 manager = tf.train.CheckpointManager(ckpt, save_path, max_to_keep=None)
 manager.save()
 
 # Train loaded model for zero timesteps (i.e. load trained model)
-model = learn(network=network, env=env, seed=seed, total_timesteps=0, load_path='trained_models/')
+model = learn(network=network, env=env, seed=seed, total_timesteps=0, load_path='trained_models/test/')
 
 # Create identical environment with renderer
 env_robo = GymWrapper(
