@@ -102,6 +102,7 @@ class FetchPush(RobotEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
+        distance_threshold = 0.06,
         placement_initializer=None,
         use_indicator_object=False,
         has_renderer=False,
@@ -128,6 +129,7 @@ class FetchPush(RobotEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
+        self.distance_threshold = distance_threshold
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -137,8 +139,8 @@ class FetchPush(RobotEnv):
             self.placement_initializer = placement_initializer
         else:
             self.placement_initializer = UniformRandomSampler(
-                x_range=[-0.38, 0.38],
-                y_range=[-0.38, 0.38],
+                x_range=[-0.2, 0.2],
+                y_range=[-0.2, 0.2],
                 ensure_object_boundary_in_range=False,
                 rotation=None,
                 z_offset=0.01,
@@ -174,42 +176,33 @@ class FetchPush(RobotEnv):
     def reward(self, action=None):
         """
         Reward function for the task.
-        Sparse un-normalized reward:
-            - a discrete reward of 2.25 is provided if the cube is lifted
-        Un-normalized summed components if using reward shaping:
-            - Reaching: in [0, 1], to encourage the arm to reach the cube
-            - Grasping: in {0, 0.25}, non-zero if arm is grasping the cube
-            - Lifting: in {0, 1}, non-zero if arm has lifted the cube
-        The sparse reward only consists of the lifting component.
-        Note that the final reward is normalized and scaled by
-        reward_scale / 2.25 as well so that the max score is equal to reward_scale
+
         Args:
             action (np array): [NOT USED]
         Returns:
             float: reward value
         """
-        reward = 0.
+        reward = .0
 
-        # sparse completion reward
-        if self._check_success():
-            reward = 2.25
+        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
+        cube_to_goal_dist = self._distance(cube_pos, goal_pos)
 
-        # use a shaping reward
-        elif self.reward_shaping:
+        if self.reward_shaping:
 
             # reaching reward
-            cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-            gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            dist = self._distance(cube_pos, gripper_site_pos)
-            reaching_reward = 1 - np.tanh(10.0 * dist)
-            reward += reaching_reward
+            gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+            gripper_to_cube_dist = self._distance(gripper_pos, cube_pos)
+            reaching_reward = np.tanh(10.0 * gripper_to_cube_dist)
+            reward -= reaching_reward
 
+            # goal reward
+            reward -= cube_to_goal_dist
 
-        # Scale reward if requested
-        if self.reward_scale is not None:
-            reward *= self.reward_scale / 2.25
+            return reward
+        else:
+            return -(cube_to_goal_dist > self.distance_threshold).astype(np.float32)
 
-        return reward
 
     def _load_model(self):
         """
@@ -338,10 +331,11 @@ class FetchPush(RobotEnv):
         """
         di = super()._get_observation()
 
+        # Get robot prefix
+        pr = self.robots[0].robot_model.naming_prefix
+
         # low-level object information
         if self.use_object_obs:
-            # Get robot prefix
-            pr = self.robots[0].robot_model.naming_prefix
 
             # position and rotation of object
             cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
@@ -350,12 +344,20 @@ class FetchPush(RobotEnv):
             )
             di["cube_pos"] = cube_pos
             di["cube_quat"] = cube_quat
+            
+            goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
+            goal_quat = convert_quat(
+                np.array(self.sim.data.body_xquat[self.goal_cube_body_id]), to="xyzw"
+            )
+            di["goal_pos"] = goal_pos
+            di["goal_quat"] = goal_quat
 
-            gripper_site_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
-            di[pr + "gripper_to_cube"] = gripper_site_pos - cube_pos
+            gripper_pos = di[pr + "eef_pos"]
+            di[pr + "gripper_to_cube_dist"] = [self._distance(gripper_pos, cube_pos)]
 
+            # Used for GymWrapper observations
             di["object-state"] = np.concatenate(
-                [cube_pos, cube_quat, di[pr + "gripper_to_cube"]]
+                [cube_pos, cube_quat, goal_pos, goal_quat, di[pr + "gripper_to_cube_dist"]]
             )
 
         return di
@@ -370,7 +372,7 @@ class FetchPush(RobotEnv):
         goal_cube_pos = self.sim.data.body_xpos[self.goal_cube_body_id]
 
         # cube is close to the goal_position
-        return self._distance(goal_cube_pos, cube_pos) < 0.06
+        return self._distance(goal_cube_pos, cube_pos) < self.distance_threshold
 
     def _visualization(self):
         """

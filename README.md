@@ -4,6 +4,7 @@ First download [MuJoCo 2.0](https://www.roboti.us/index.html) and unzip its cont
 After setting up mujoco, the rest of the requirements can be installed with
 ```
 pip3 install -r requirements.txt
+pip3 install -r requirements_git.txt
 ```
 
 ## mujoco-py quick fix 

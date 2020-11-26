@@ -108,14 +108,33 @@ def plot_forces_and_contact(forces_filepath, contact_filepath):
     plt.figure()
     for i in range(forces.shape[1]):
         force = forces[:, i]
-        plt.plot(t, force, label='force_' + axes[i])
+        plt.plot(t, force, label=axes[i])
     
     plt.plot(t, contact, label='contact')
     plt.grid()
     plt.legend()
-    plt.title('Test for contact between gripper and object')
+    plt.xlabel('Time (steps)')
+    plt.ylabel('Force (N)')
+    plt.title('Interaction forces between the probe and the end effector base')
     plt.show()
 
 
+def plot_gripper_position(filepath):
+    position = np.genfromtxt(filepath, delimiter=',')
+
+    t = np.array([i for i in range(position.shape[0])])
+    axes = ['x', 'y', 'z']
+
+    plt.figure()
+    for i in range(position.shape[1]):
+        force = position[:, i]
+        plt.plot(t, force, label=axes[i])
+    
+    plt.grid()
+    plt.legend()
+    plt.xlabel('Time (steps)')
+    plt.ylabel('Position (m)')
+    plt.title('Position of gripper')
+    plt.show()
 
 
