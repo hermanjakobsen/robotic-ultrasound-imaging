@@ -190,12 +190,16 @@ class FetchPush(RobotEnv):
 
         if self.reward_shaping:
 
+            # Give large penalty if moving away from cube
+            if self._moving_away_from_cube():
+                return -3000
+
             # reaching reward
             gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
             gripper_to_cube_dist = self._distance(gripper_pos, cube_pos)
             reaching_reward = np.tanh(10.0 * gripper_to_cube_dist)
             reward -= reaching_reward
-
+    
             # goal reward
             reward -= cube_to_goal_dist
 
@@ -274,7 +278,6 @@ class FetchPush(RobotEnv):
         )
         self.model.place_objects()
 
-        self.goal_pos, _ = self.model.initializer.sample()
 
     def _get_reference(self):
         """
@@ -317,6 +320,11 @@ class FetchPush(RobotEnv):
             for i, (obj_name, _) in enumerate(self.mujoco_objects.items()):
                 self.sim.data.set_joint_qpos(obj_name + "_jnt0", np.concatenate([np.array(obj_pos[i]), np.array(obj_quat[i])]))
 
+        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+        self.initial_gripper_to_goal_dist = self._distance(cube_pos, gripper_pos)
+
+
     def _get_observation(self):
         """
         Returns an OrderedDict containing observations [(name_string, np.array), ...].
@@ -334,45 +342,85 @@ class FetchPush(RobotEnv):
         # Get robot prefix
         pr = self.robots[0].robot_model.naming_prefix
 
+        if self.robots[0].has_gripper:
+            # Checking if the UltrasoundProbeGripper is used
+            if self.robots[0].gripper.dof == 0:
+                # Remove unused keys (no joints in gripper)
+                di.pop('robot0_gripper_qpos', None)
+                di.pop('robot0_gripper_qvel', None)
+
         # low-level object information
         if self.use_object_obs:
 
             # position and rotation of object
             cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
-            cube_quat = convert_quat(
-                np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw"
-            )
             di["cube_pos"] = cube_pos
-            di["cube_quat"] = cube_quat
             
             goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
-            goal_quat = convert_quat(
-                np.array(self.sim.data.body_xquat[self.goal_cube_body_id]), to="xyzw"
-            )
             di["goal_pos"] = goal_pos
-            di["goal_quat"] = goal_quat
+
+            cube_to_goal_dist = [self._distance(cube_pos, goal_pos)]
 
             gripper_pos = di[pr + "eef_pos"]
             di[pr + "gripper_to_cube_dist"] = [self._distance(gripper_pos, cube_pos)]
 
-            # Used for GymWrapper observations
+            # Used for GymWrapper observations (Robot state will also default be added e.g. eef position)
             di["object-state"] = np.concatenate(
-                [cube_pos, cube_quat, goal_pos, goal_quat, di[pr + "gripper_to_cube_dist"]]
+                [cube_pos, goal_pos, cube_to_goal_dist, di[pr + "gripper_to_cube_dist"]]
             )
 
         return di
 
     def _check_success(self):
         """
-        Check if cube has been lifted.
+        Check if cube has been pushed to goal.
         Returns:
-            bool: True if cube has been lifted
+            bool: True if cube has been pushed to goal
         """
         cube_pos = self.sim.data.body_xpos[self.cube_body_id]
         goal_cube_pos = self.sim.data.body_xpos[self.goal_cube_body_id]
 
         # cube is close to the goal_position
         return self._distance(goal_cube_pos, cube_pos) < self.distance_threshold
+
+    def _moving_away_from_cube(self):
+        """
+        Check if the robot has moved away from cube between steps.
+        Returns:
+            bool: True if episode is terminated
+        """
+        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+        gripper_to_cube_dist = self._distance(cube_pos, gripper_pos)
+
+        return gripper_to_cube_dist > self.initial_gripper_to_goal_dist
+
+
+    def _check_terminated(self):
+        """
+        Check if the task has completed one way or another. The following conditions lead to termination:
+            - Task completion (cube pushed to goal)
+            - Robot moving away from cube
+        Returns:
+            bool: True if episode is terminated
+        """
+ 
+        return self._check_success() or self._moving_away_from_cube()
+
+    def _post_action(self, action):
+        """
+        In addition to super method, add additional info if requested
+        Args:
+            action (np.array): Action to execute within the environment
+        Returns:
+            3-tuple:
+                - (float) reward from the environment
+                - (bool) whether the current episode is completed or not
+                - (dict) info about current env step
+        """
+        reward, done, info = super()._post_action(action)
+        done = done or self._check_terminated()
+        return reward, done, info
 
     def _visualization(self):
         """
