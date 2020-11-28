@@ -9,6 +9,8 @@ from robosuite.wrappers import GymWrapper
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.save_util import save_to_zip_file, load_from_zip_file
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from my_environments import Ultrasound, FetchPush
 from my_models.grippers import UltrasoundProbeGripper
@@ -38,6 +40,13 @@ register_gripper(UltrasoundProbeGripper)
 #plot_gripper_position('data/main_gripper_pos_contact_btw_probe_and_body.csv')
 
 ## RL
+
+def wrap_env(env):
+    wrapped_env = Monitor(env)                          # Needed for extracting eprewmean and eplenmean
+    wrapped_env = DummyVecEnv([lambda : wrapped_env])   # Needed for all environments (e.g. used for mulit-processing)
+    wrapped_env = VecNormalize(wrapped_env)             # Needed for improving training?
+    return wrapped_env
+
 controller_config = load_controller_config(default_controller='JOINT_POSITION')
 
 env = GymWrapper(
@@ -56,12 +65,16 @@ env = GymWrapper(
             reward_shaping = True,
         )
     )
+
+env = wrap_env(env)
+    
 model = PPO('MlpPolicy', env, verbose=1, tensorboard_log='./ppo_fetchpush_tensorboard/')
-model.learn(total_timesteps=1e6, tb_log_name='test')
+model.learn(total_timesteps=2e6, tb_log_name='2M')
 
-model.save('trained_models/test')
+model.save('trained_models/2M')
+env.save('trained_models/vec_normalize_2M.pkl')     # Save VecNormalize statistics
 
-env = GymWrapper(
+env_robo = GymWrapper(               # Should this environment also be vecnormalized when used for rendering?
         suite.make(
             'FetchPush',
             robots='UR5e',
@@ -78,9 +91,11 @@ env = GymWrapper(
         )
     )
 
+env = wrap_env(env_robo)
+
 obs = env.reset()
 
-low, high = env.action_spec
+low, high = env_robo.action_spec
 eprew = 0
 while True:
     action, _states = model.predict(obs, deterministic=True)
@@ -88,7 +103,7 @@ while True:
     obs, reward, done, info = env.step(action)
 
     eprew += reward
-    env.render()
+    env_robo.render()
     if done:
         print(f'eprew: {eprew}')
         obs = env.reset()
