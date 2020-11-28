@@ -442,7 +442,7 @@ class FetchPush(RobotEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
-        #done = done or self._check_terminated()
+        done = done or self._check_terminated()
         return reward, done, info
 
     def _visualization(self):
