@@ -31,4 +31,5 @@ scipy==1.5.2
 six==1.15.0
 toml==0.10.1
 wrapt==1.12.1
+tensorboard==2.4.0
 git+https://github.com/DLR-RM/stable-baselines3
