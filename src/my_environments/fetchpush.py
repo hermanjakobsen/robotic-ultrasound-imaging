@@ -190,9 +190,13 @@ class FetchPush(RobotEnv):
 
         if self.reward_shaping:
 
-            # Give large penalty if moving away from cube
-            if self._moving_away_from_cube():
+            # Return large penalty if moving away from cube
+            if self._is_moving_away_from_cube():
                 return -3000
+
+            # Give penalty for touching table
+            if self._is_gripper_touching_table():
+                reward -= 3
 
             # reaching reward
             gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
@@ -290,6 +294,7 @@ class FetchPush(RobotEnv):
         # Additional object references from this env
         self.cube_body_id = self.sim.model.body_name2id("cube")
         self.goal_cube_body_id = self.sim.model.body_name2id("goal_cube")
+
         if self.robots[0].gripper_type == 'UltrasoundProbeGripper': 
             self.probe_geom_id = [
                 self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["probe"]
@@ -303,6 +308,7 @@ class FetchPush(RobotEnv):
             ]
         self.cube_geom_id = self.sim.model.geom_name2id("cube")
         self.goal_cube_geom_id = self.sim.model.geom_name2id("goal_cube")
+        self.table_geom_id = self.sim.model.geom_name2id("table_collision")
 
     def _reset_internal(self):
         """
@@ -383,7 +389,7 @@ class FetchPush(RobotEnv):
         # cube is close to the goal_position
         return self._distance(goal_cube_pos, cube_pos) < self.distance_threshold
 
-    def _moving_away_from_cube(self):
+    def _is_moving_away_from_cube(self):
         """
         Check if the robot has moved away from cube between steps.
         Returns:
@@ -404,8 +410,25 @@ class FetchPush(RobotEnv):
         Returns:
             bool: True if episode is terminated
         """
- 
-        return self._check_success() or self._moving_away_from_cube()
+        return self._check_success() or self._is_moving_away_from_cube()
+
+    def _is_gripper_touching_table(self):
+        """
+        Check if the gripper is in contact with the tabletop
+        Returns:
+            bool: True if contact
+        """
+        for contact in self.sim.data.contact[: self.sim.data.ncon]:
+            geom_name1 =  self.sim.model.geom_id2name(contact.geom1)
+            geom_name2 = self.sim.model.geom_id2name(contact.geom2)
+
+            if (
+                geom_name1 in self.robots[0].gripper.contact_geoms and geom_name2 == self.sim.model.geom_id2name(self.table_geom_id)
+                or geom_name2 in self.robots[0].gripper.contact_geoms and geom_name1 == self.sim.model.geom_id2name(self.table_geom_id)
+            ):
+                return True
+
+        return False
 
     def _post_action(self, action):
         """
@@ -419,7 +442,7 @@ class FetchPush(RobotEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
-        done = done or self._check_terminated()
+        #done = done or self._check_terminated()
         return reward, done, info
 
     def _visualization(self):
