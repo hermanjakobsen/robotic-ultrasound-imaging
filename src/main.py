@@ -40,7 +40,6 @@ register_gripper(UltrasoundProbeGripper)
 #plot_gripper_position('data/main_gripper_pos_contact_btw_probe_and_body.csv')
 
 ## RL
-
 def wrap_env(env):
     wrapped_env = Monitor(env)                          # Needed for extracting eprewmean and eplenmean
     wrapped_env = DummyVecEnv([lambda : wrapped_env])   # Needed for all environments (e.g. used for mulit-processing)
@@ -49,6 +48,7 @@ def wrap_env(env):
 
 controller_config = load_controller_config(default_controller='JOINT_POSITION')
 
+# Training
 env = GymWrapper(
         suite.make(
             'FetchPush',
@@ -74,6 +74,10 @@ model.learn(total_timesteps=2e6, tb_log_name='2M')
 model.save('trained_models/2M')
 env.save('trained_models/vec_normalize_2M.pkl')     # Save VecNormalize statistics
 
+
+
+# Testing
+'''
 env_robo = GymWrapper(               # Should this environment also be vecnormalized when used for rendering?
         suite.make(
             'FetchPush',
@@ -91,7 +95,13 @@ env_robo = GymWrapper(               # Should this environment also be vecnormal
         )
     )
 
-env = wrap_env(env_robo)
+# Load the saved statistics
+#env = DummyVecEnv([lambda : env_robo])
+#env = VecNormalize.load('trained_models/vec_normalize_2M.pkl', env)
+#  do not update them at test time
+#env.training = False
+# reward normalization is not needed at test time
+#env.norm_reward = False
 
 obs = env.reset()
 
@@ -110,3 +120,4 @@ while True:
         eprew = 0
 
 env.close()
+'''
