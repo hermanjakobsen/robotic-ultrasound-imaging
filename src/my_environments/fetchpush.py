@@ -399,7 +399,7 @@ class FetchPush(RobotEnv):
         gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
         gripper_to_cube_dist = self._distance(cube_pos, gripper_pos)
 
-        return gripper_to_cube_dist > self.initial_gripper_to_goal_dist
+        return gripper_to_cube_dist > self.initial_gripper_to_goal_dist + 0.1
 
 
     def _check_terminated(self):
