@@ -185,32 +185,51 @@ class FetchPush(RobotEnv):
         reward = .0
 
         cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
-        goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
-        cube_to_goal_dist = self._distance(cube_pos, goal_pos)
+        cube_to_goal_dist = self._distance(cube_pos, self.goal_pos)
+        gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
+        gripper_to_cube_dist = self._distance(gripper_pos, cube_pos)
 
         if self.reward_shaping:
 
-            # Return large penalty if moving away from cube
-            if self._is_moving_away_from_cube():
-                return -3000
+            # Return large penalty if robot has moved significantly away from cube
+            if self._has_moved_significantly_away_from_cube():
+                return -100
+
+            # Return large reward if cube has been moved to goal
+            if self._check_success():
+                return 100
 
             # Give penalty for touching table
             if self._is_gripper_touching_table():
-                reward -= 3
+                reward -= 1
 
-            # reaching reward
-            gripper_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-            gripper_to_cube_dist = self._distance(gripper_pos, cube_pos)
-            reaching_reward = np.tanh(10.0 * gripper_to_cube_dist)
-            reward -= reaching_reward
+            # Reward for moving closer to cube
+            if gripper_to_cube_dist < self.previous_gripper_to_cube_dist:
+                reward += 1
     
-            # goal reward
-            reward -= cube_to_goal_dist
+            # Penalty for moving away from cube
+            if gripper_to_cube_dist > self.previous_gripper_to_cube_dist:
+                reward -= 1
+            
+            # Reward for touching cube
+            if self._is_gripper_touching_cube():
+                reward += 1
+
+            # Reward for pushing cube closer to goal
+            if cube_to_goal_dist < self.previous_cube_to_goal_dist:
+                reward += 2
+
+            # Penalty for pushing the cube further away
+            if cube_to_goal_dist > self.previous_cube_to_goal_dist:
+                reward -= 2
+
+            # Update measurements
+            self.previous_gripper_to_cube_dist = gripper_to_cube_dist
+            self.previous_cube_to_goal_dist = cube_to_goal_dist
 
             return reward
         else:
-            return -(cube_to_goal_dist > self.distance_threshold).astype(np.float32)
-
+            return -float(not self._check_success())
 
     def _load_model(self):
         """
@@ -326,10 +345,16 @@ class FetchPush(RobotEnv):
             for i, (obj_name, _) in enumerate(self.mujoco_objects.items()):
                 self.sim.data.set_joint_qpos(obj_name + "_jnt0", np.concatenate([np.array(obj_pos[i]), np.array(obj_quat[i])]))
 
-        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
-        gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
-        self.initial_gripper_to_goal_dist = self._distance(cube_pos, gripper_pos)
+        self.initial_cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        self.initial_gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
+        self.goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
 
+        self.initial_cube_to_goal_dist = self._distance(self.initial_cube_pos, self.goal_pos)
+        self.initial_gripper_to_cube_dist = self._distance(self.initial_cube_pos, self.initial_gripper_pos)
+
+        self.previous_cube_to_goal_dist = self.initial_cube_to_goal_dist
+        self.previous_gripper_to_cube_dist = self.initial_gripper_to_cube_dist
+        
 
     def _get_observation(self):
         """
@@ -361,18 +386,16 @@ class FetchPush(RobotEnv):
             # position and rotation of object
             cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
             di["cube_pos"] = cube_pos
-            
-            goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
-            di["goal_pos"] = goal_pos
+            di["goal_pos"] = self.goal_pos
 
-            cube_to_goal_dist = [self._distance(cube_pos, goal_pos)]
+            cube_to_goal_dist = [self._distance(cube_pos, self.goal_pos)]
 
             gripper_pos = di[pr + "eef_pos"]
             di[pr + "gripper_to_cube_dist"] = [self._distance(gripper_pos, cube_pos)]
 
             # Used for GymWrapper observations (Robot state will also default be added e.g. eef position)
             di["object-state"] = np.concatenate(
-                [cube_pos, goal_pos, cube_to_goal_dist, di[pr + "gripper_to_cube_dist"]]
+                [cube_pos, self.goal_pos, cube_to_goal_dist, di[pr + "gripper_to_cube_dist"]]
             )
 
         return di
@@ -384,12 +407,11 @@ class FetchPush(RobotEnv):
             bool: True if cube has been pushed to goal
         """
         cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-        goal_cube_pos = self.sim.data.body_xpos[self.goal_cube_body_id]
 
-        # cube is close to the goal_position
-        return self._distance(goal_cube_pos, cube_pos) < self.distance_threshold
+        # Cube is close to the goal_position
+        return self._distance(self.goal_pos, cube_pos) < self.distance_threshold
 
-    def _is_moving_away_from_cube(self):
+    def _has_moved_significantly_away_from_cube(self):
         """
         Check if the robot has moved away from cube between steps.
         Returns:
@@ -399,18 +421,36 @@ class FetchPush(RobotEnv):
         gripper_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
         gripper_to_cube_dist = self._distance(cube_pos, gripper_pos)
 
-        return gripper_to_cube_dist > self.initial_gripper_to_goal_dist + 0.1
+        return gripper_to_cube_dist > self.initial_gripper_to_cube_dist + 0.12
 
 
     def _check_terminated(self):
         """
         Check if the task has completed one way or another. The following conditions lead to termination:
-            - Task completion (cube pushed to goal)
+            - Task completion (cube pushed to goal) Should this be added?
             - Robot moving away from cube
         Returns:
             bool: True if episode is terminated
         """
-        return self._check_success() or self._is_moving_away_from_cube()
+        return self._has_moved_significantly_away_from_cube() or self._check_success()
+
+    def _is_gripper_touching_cube(self):
+        """
+        Check if the gripper is in contact with the cube
+        Returns:
+            bool: True if contact
+        """
+        for contact in self.sim.data.contact[: self.sim.data.ncon]:
+            geom_name1 =  self.sim.model.geom_id2name(contact.geom1)
+            geom_name2 = self.sim.model.geom_id2name(contact.geom2)
+
+            if (
+                geom_name1 in self.robots[0].gripper.contact_geoms and geom_name2 == self.sim.model.geom_id2name(self.cube_geom_id)
+                or geom_name2 in self.robots[0].gripper.contact_geoms and geom_name1 == self.sim.model.geom_id2name(self.cube_geom_id)
+            ):
+                return True
+
+        return False
 
     def _is_gripper_touching_table(self):
         """
