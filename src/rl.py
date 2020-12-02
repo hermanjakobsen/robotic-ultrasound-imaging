@@ -54,7 +54,7 @@ if __name__ == '__main__':
     options['reward_shaping'] = True
 
     # Settings
-    training = True
+    training = False
     training_timesteps = 2e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     save_model_folder = 'trained_models'
     save_model_filename = '2M_OSC_POSE'
     load_model_folder = 'trained_models'
-    load_model_filename = '2M_OSC_POSE_POse'
+    load_model_filename = '2M_OSC_POSE_POSE'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -87,6 +87,7 @@ if __name__ == '__main__':
     
     else:
         options['has_renderer'] = True
+        register_gripper(UltrasoundProbeGripper)
         env_gym = GymWrapper(suite.make(env_id, **options))
         env = DummyVecEnv([lambda : env_gym])
 
