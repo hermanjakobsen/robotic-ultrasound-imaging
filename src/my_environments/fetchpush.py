@@ -102,7 +102,7 @@ class FetchPush(RobotEnv):
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        distance_threshold = 0.06,
+        distance_threshold = 0.07,
         placement_initializer=None,
         use_indicator_object=False,
         has_renderer=False,
@@ -139,11 +139,11 @@ class FetchPush(RobotEnv):
             self.placement_initializer = placement_initializer
         else:
             self.placement_initializer = UniformRandomSampler(
-                x_range=[-0.2, 0.2],
-                y_range=[-0.2, 0.2],
+                x_range=[-0.22, 0.22],
+                y_range=[-0.22, 0.22],
                 ensure_object_boundary_in_range=False,
                 rotation=None,
-                z_offset=0.01,
+                z_offset=0.002,
             )
 
         super().__init__(
@@ -193,43 +193,55 @@ class FetchPush(RobotEnv):
 
             # Return large penalty if robot has moved significantly away from cube
             if self._has_moved_significantly_away_from_cube():
-                return -100
+                reward += -1
 
             # Return large reward if cube has been moved to goal
             if self._check_success():
-                return 100
+                reward += 1
+
+             # Reward for touching cube
+            if self._is_gripper_touching_cube():
+                reward += 0.25
 
             # Give penalty for touching table
             if self._is_gripper_touching_table():
-                reward -= 1
+                reward -= 0.1
 
+            # Reaching reward
+            reward += 0.25 * (1 - np.tanh(10.0 * gripper_to_cube_dist))
+
+
+        else:
+            reward += -float(not self._check_success())
+        
+        return reward
+
+        '''
+            
             # Reward for moving closer to cube
             if gripper_to_cube_dist < self.previous_gripper_to_cube_dist:
                 reward += 1
     
             # Penalty for moving away from cube
             if gripper_to_cube_dist > self.previous_gripper_to_cube_dist:
-                reward -= 1
-            
-            # Reward for touching cube
-            if self._is_gripper_touching_cube():
-                reward += 1
+                reward -= 1 
 
             # Reward for pushing cube closer to goal
-            if cube_to_goal_dist < self.previous_cube_to_goal_dist:
-                reward += 2
+            #if cube_to_goal_dist < self.previous_cube_to_goal_dist:
+            #    print('pushing cube closer')
+            #    reward += 6
 
             # Penalty for pushing the cube further away
-            if cube_to_goal_dist > self.previous_cube_to_goal_dist:
-                reward -= 2
-
+            #if cube_to_goal_dist > self.previous_cube_to_goal_dist + 0.01:
+            #    print('pushing cube away')
+            #    reward -= 6
+        
             # Update measurements
             self.previous_gripper_to_cube_dist = gripper_to_cube_dist
             self.previous_cube_to_goal_dist = cube_to_goal_dist
+        '''
 
-            return reward
-        else:
-            return -float(not self._check_success())
+            
 
     def _load_model(self):
         """
@@ -432,11 +444,11 @@ class FetchPush(RobotEnv):
         Returns:
             bool: True if episode is terminated
         """
-        return self._has_moved_significantly_away_from_cube() or self._check_success()
+        return self._has_moved_significantly_away_from_cube() # or self._check_success()
 
     def _is_gripper_touching_cube(self):
         """
-        Check if the gripper is in contact with the cube
+        Check if the gripper is in contact with the cube    
         Returns:
             bool: True if contact
         """
@@ -482,7 +494,7 @@ class FetchPush(RobotEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
-        done = done or self._check_terminated()
+        #done = done or self._check_terminated()
         return reward, done, info
 
     def _visualization(self):
