@@ -24,9 +24,9 @@ class SoftTorsoObject(MujocoXMLObject):
         self.stiffness = stiffness
 
         if self.damping is not None:
-            self._set_damping(damping)
+            self.set_damping(damping)
         if self.stiffness is not None:
-            self._set_stiffness(stiffness)
+            self.set_stiffness(stiffness)
 
 
     def _get_composite_element(self):
