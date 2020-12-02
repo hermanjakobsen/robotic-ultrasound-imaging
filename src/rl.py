@@ -55,6 +55,7 @@ if __name__ == '__main__':
 
     # Settings
     training = True
+    training_timesteps = 2e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
     tb_log_name = 'test'
@@ -79,7 +80,7 @@ if __name__ == '__main__':
         else:
             model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=tb_log_folder)
         
-        model.learn(total_timesteps=10000, tb_log_name=tb_log_name)
+        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name)
 
         model.save(save_model_path)
         env.save(save_vecnormalize_path)
