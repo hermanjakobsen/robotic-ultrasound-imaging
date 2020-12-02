@@ -27,6 +27,7 @@ def make_training_env(env_id, options, rank, seed=0):
     :param rank: (int) index of the subprocess
     """
     def _init():
+        register_gripper(UltrasoundProbeGripper)
         env = GymWrapper(suite.make(env_id, **options))
         env = Monitor(env)
         env.seed(seed + rank)
@@ -36,14 +37,13 @@ def make_training_env(env_id, options, rank, seed=0):
 
 if __name__ == '__main__':
     register_env(FetchPush)
-    register_gripper(UltrasoundProbeGripper)    # Not able to register
 
     # Environment specifications
     env_id = 'FetchPush'
     options = {}
     options['robots'] = 'UR5e'
     options['controller_configs'] = load_controller_config(default_controller='OSC_POSE')
-    options['gripper_types'] = None
+    options['gripper_types'] = 'UltrasoundProbeGripper'
     options['has_renderer'] = False
     options['has_offscreen_renderer'] = False
     options['use_camera_obs'] = False
@@ -58,12 +58,12 @@ if __name__ == '__main__':
     training_timesteps = 2e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
-    tb_log_name = 'test'
+    tb_log_name = '2M_OSC_POSE'
     load_model_for_training_path = None
     save_model_folder = 'trained_models'
-    save_model_filename = 'test'
-    load_model_folder = save_model_folder
-    load_model_filename = save_model_filename
+    save_model_filename = '2M_OSC_POSE'
+    load_model_folder = 'trained_models'
+    load_model_filename = '2M_OSC_POSE_POse'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
