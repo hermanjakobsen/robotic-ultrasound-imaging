@@ -194,9 +194,11 @@ class FetchPush(RobotEnv):
             if self._check_success():
                 reward += 1
 
-             # Reward for touching cube
+             # Reward for touching cube and pushing toward goal
             if self._is_gripper_touching_cube():
-                reward += 0.25
+                reward += 0.2
+                reward += 0.3 * (1 - np.tanh(10.0 * self.cube_to_goal_dist))
+
 
             # Give penalty for touching table
             if self._is_gripper_touching_table():
@@ -266,6 +268,7 @@ class FetchPush(RobotEnv):
             size_min=[0.005, 0.005, 0.005],
             size_max=[0.005, 0.005, 0.005], 
             rgba=[0, 0, 1, 1],
+            density = 11342,            # Density of lead such that the goal won't be moved
         )
 
         self.mujoco_objects = OrderedDict([("cube", cube), ("goal_cube", goal_cube)])
@@ -362,7 +365,11 @@ class FetchPush(RobotEnv):
         if self.use_object_obs:
 
             # position and rotation of object
+            self.goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
             self.cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+            self.cube_quat = convert_quat(
+                np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw"
+            )
             self.gripper_pos = di[pr + "eef_pos"]
 
             self.cube_to_goal_dist = self._distance(self.cube_pos, self.goal_pos)
@@ -374,7 +381,7 @@ class FetchPush(RobotEnv):
             
             # Used for GymWrapper observations (Robot state will also default be added e.g. eef position)
             di["object-state"] = np.concatenate(
-                [self.cube_pos, self.goal_pos, [self.cube_to_goal_dist], [self.gripper_to_cube_dist]]
+                [self.cube_pos, self.cube_quat, self.goal_pos, [self.cube_to_goal_dist], [self.gripper_to_cube_dist]]
             )
 
         return di
