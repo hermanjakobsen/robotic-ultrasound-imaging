@@ -214,34 +214,7 @@ class FetchPush(RobotEnv):
         else:
             reward += -float(not self._check_success())
         
-        return reward
-
-        '''
-            
-            # Reward for moving closer to cube
-            if gripper_to_cube_dist < self.previous_gripper_to_cube_dist:
-                reward += 1
-    
-            # Penalty for moving away from cube
-            if gripper_to_cube_dist > self.previous_gripper_to_cube_dist:
-                reward -= 1 
-
-            # Reward for pushing cube closer to goal
-            #if cube_to_goal_dist < self.previous_cube_to_goal_dist:
-            #    print('pushing cube closer')
-            #    reward += 6
-
-            # Penalty for pushing the cube further away
-            #if cube_to_goal_dist > self.previous_cube_to_goal_dist + 0.01:
-            #    print('pushing cube away')
-            #    reward -= 6
-        
-            # Update measurements
-            self.previous_gripper_to_cube_dist = gripper_to_cube_dist
-            self.previous_cube_to_goal_dist = cube_to_goal_dist
-        '''
-
-            
+        return reward            
 
     def _load_model(self):
         """
@@ -363,10 +336,6 @@ class FetchPush(RobotEnv):
 
         self.initial_cube_to_goal_dist = self._distance(self.initial_cube_pos, self.goal_pos)
         self.initial_gripper_to_cube_dist = self._distance(self.initial_cube_pos, self.initial_gripper_pos)
-
-        self.previous_cube_to_goal_dist = self.initial_cube_to_goal_dist
-        self.previous_gripper_to_cube_dist = self.initial_gripper_to_cube_dist
-        
 
     def _get_observation(self):
         """
