@@ -29,7 +29,7 @@ def plot_force_and_z_pos(data, title):
 def slice_data(data, sampling_location):
     # Values are manually read from the data
     if sampling_location == 'upper_right':
-        return data[200:2111]
+        return data[85:2111]
     if sampling_location == 'upper_left':
         return data[40:464]
     if sampling_location == 'center':
@@ -41,7 +41,7 @@ def slice_data(data, sampling_location):
 
 
 def remove_force_offset(data):
-    z_offset = data[0]['force'][-1]
+    z_offset =  0.4 #data[0]['force'][-1] # Manually read from z_pos/z_force plot before gripper starts moving #0.28 
     for entry in data:
         entry['force'][-1] = entry['force'][-1] - z_offset
 
@@ -54,7 +54,7 @@ def calculate_y_values(data):
     start_z_pos = position[0][-1]
 
 
-    for i in range(1, len(force)): 
+    for i in range(6, len(force)):  # Skip first elements to avoid zero division error
         z_force = force[i][-1]
         z_pos = position[i][-1]
         residual = start_z_pos - z_pos
@@ -70,7 +70,7 @@ def calculate_x_values(data):
     position = extract_measurement(data, 'position')
     start_z_pos = position[0][-1]
 
-    for i in range(1, len(velocity)):
+    for i in range(6, len(velocity)):
         z_vel = velocity[i][-1]
         z_pos = position[i][-1]
         residual = start_z_pos - z_pos
@@ -87,6 +87,9 @@ def calculate_calibration_curve(data):
 def plot_calibration_curve(data, title):
     x, y = calculate_calibration_curve(data)
 
+    for el in y:
+        print(el)
+
     plt.figure()
     plt.scatter(x, y)
     plt.xlabel('z_vel / r')
@@ -94,6 +97,14 @@ def plot_calibration_curve(data, title):
     plt.title('Calibration curve' + ' - ' + title)
     plt.grid()
     plt.show()
+
+
+def calculate_slope_and_intersection(data_list):
+    slope_and_intersect = []
+    for data in data_list:
+        x, y = calculate_calibration_curve(data)
+        slope_and_intersect.append(np.polyfit(x, y, 1))
+    return np.array(slope_and_intersect)
 
 
 data_upper_right = np.load('calibration_data/data_upper_right.npy', allow_pickle=True, encoding='latin1')
@@ -108,7 +119,32 @@ data_center = slice_data(data_center, 'center')
 data_lower_right = slice_data(data_lower_right, 'lower_right')
 data_lower_left = slice_data(data_lower_left, 'lower_left')
 
+remove_force_offset(data_upper_right)
+remove_force_offset(data_upper_left)
+remove_force_offset(data_center)
+remove_force_offset(data_lower_left)
+remove_force_offset(data_lower_right)
+
+slope_and_intersect = calculate_slope_and_intersection([data_upper_right, data_upper_left, data_lower_right, data_lower_left, data_center])
+print(slope_and_intersect)
+
+
+'''
+plot_calibration_curve(data_upper_right, 'upper_right')
 plot_calibration_curve(data_upper_left, 'upper_left')
 plot_calibration_curve(data_center, 'center')
 plot_calibration_curve(data_lower_right, 'lower_right')
 plot_calibration_curve(data_lower_left, 'lower_left')
+'''
+'''
+velocity_right = extract_measurement(data_upper_right, 'linear')[:, -1]
+velocity_left = extract_measurement(data_upper_left, 'linear')[:, -1]
+
+plt.figure()
+plt.plot(velocity_left)
+plt.show()
+
+plt.figure()
+plt.plot(velocity_right)
+plt.show()
+'''
