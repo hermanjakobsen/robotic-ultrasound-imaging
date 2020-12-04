@@ -6,6 +6,7 @@ from robosuite.models import MujocoWorldBase
 from robosuite.models.arenas import EmptyArena
 from robosuite.utils.mjcf_utils import new_joint, array_to_string
 from robosuite.wrappers import GymWrapper
+from robosuite import load_controller_config
 
 from mujoco_py import MjSim, MjViewer
 
@@ -244,3 +245,59 @@ def drop_cube_on_body_demo():
    
         sim.step()
         viewer.render()
+
+
+def gather_calibration_measurements():
+    
+    env = suite.make(
+        'Ultrasound',
+        robots='Panda',
+        controller_configs=load_controller_config(default_controller = 'OSC_POSE'),
+        gripper_types='UltrasoundProbeGripper',
+        has_renderer = True,
+        has_offscreen_renderer= False,
+        use_camera_obs=False,   
+        use_object_obs=False,
+        control_freq = 50,
+        render_camera = None,
+        horizon=200
+    )
+
+    # Reset the env
+    env.reset() 
+
+    robot = env.robots[0]
+
+    ee_z_force = np.empty(shape=(env.horizon, 1))
+    ee_z_pos = np.empty(shape=(env.horizon, 1))
+    ee_z_vel = np.empty(shape=(env.horizon, 1))
+
+    for t in range(env.horizon):
+        print(t)
+        if env.done:
+            break
+        env.render()
+
+        action = [0.2, 0.05, -0.2, 0, 0, 0]
+
+        if t > 50:
+            action = [0, 0, 0, 0, 0, 0]
+        if t > 75:
+            action = [0, 0, -0.4, 0, 0, 0]
+        if t > 150:
+            action = [0, 0, 0.8, 0, 0, 0]
+        if t > 175:
+            action = [0, 0, 0, 0, 0, 0]
+
+        observation, reward, done, info = env.step(action)
+
+        ee_z_force[t] = transform_ee_frame_axes(robot.ee_force)[-1] if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_force[-1]
+        ee_z_pos[t] = observation['robot0_eef_pos'][-1]
+        ee_z_vel[t] = observation['gripper_velp'][-1]
+
+    np.savetxt('data/calibration_z_force.csv', ee_z_force, delimiter=",")
+    np.savetxt('data/calibration_z_pos.csv', ee_z_pos, delimiter=",")
+    np.savetxt('data/calibration_z_vel.csv', ee_z_vel, delimiter=",")
+   
+    # close window
+    env.close() 
