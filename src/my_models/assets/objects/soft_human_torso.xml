@@ -8,7 +8,7 @@
         <freejoint/>
         <!--Used for contact demo-->
         <body name="collision" pos="0 0.1 0.87" quat="0.5 0.5 -0.5 -0.5">
-          <composite type="cylinder" count="9 4 11" spacing="0.035" solrefsmooth="-1324.17 -17.59">
+          <composite type="cylinder" count="9 4 11" spacing="0.035" solrefsmooth="-17.59 -1324.17">
             <geom type="capsule" size=".0075 0.025" rgba=".8 .2 .1 1" contype="0"/>
             <skin material="skin-material" texcoord="true"/>
           </composite>

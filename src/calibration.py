@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+params = {'text.usetex' : True,
+          'font.size' : 16,
+          }
 
 from robosuite.environments.base import register_env
 from my_environments import Ultrasound
@@ -111,8 +114,8 @@ def plot_calibration_curve(data, title = ''):
 
     plt.figure()
     plt.scatter(x, y)
-    plt.xlabel('z_vel / r')
-    plt.ylabel('z_force / r')
+    plt.xlabel(r'$\frac{z_{vel}}{r}$')
+    plt.ylabel(r'$\frac{z_{force}}{r}$')
     plt.title('Calibration curve' + ' - ' + title)
     plt.grid()
     plt.show()
@@ -145,14 +148,14 @@ data_lower_right = slice_data(data_lower_right, 'lower_right')
 data_lower_left = slice_data(data_lower_left, 'lower_left')
 
 slope_and_intersect = calculate_slope_and_intersection([data_upper_right, data_upper_left, data_center, data_lower_right, data_lower_left])
-#print(slope_and_intersect)
+print(slope_and_intersect)
 
 '''
-plot_calibration_curve(data_upper_right, 'upper_right')
-plot_calibration_curve(data_upper_left, 'upper_left')
+plot_calibration_curve(data_upper_right, 'upper-right')
+plot_calibration_curve(data_upper_left, 'upper-left')
 plot_calibration_curve(data_center, 'center')
-plot_calibration_curve(data_lower_right, 'lower_right')
-plot_calibration_curve(data_lower_left, 'lower_left')
+plot_calibration_curve(data_lower_right, 'lower-right')
+plot_calibration_curve(data_lower_left, 'lower-left')
 '''
 '''
 velocity_right = extract_measurement(data_upper_right, 'linear')[:, -1]
@@ -169,7 +172,8 @@ plt.show()
 
 
 ## SIMULATION EXPERIMENT
-def plot_calibration_simulation_data(z_pos, z_force):    
+
+def plot_calibration_simulation_data(z_pos, z_force, z_vel):    
     plt.figure()
     plt.title('z_pos')
     plt.plot(z_pos)
@@ -177,6 +181,10 @@ def plot_calibration_simulation_data(z_pos, z_force):
     plt.figure()
     plt.title('z_force')
     plt.plot(z_force)
+
+    plt.figure()
+    plt.title('z_vel')
+    plt.plot(z_vel)
 
     plt.show()
 
@@ -220,20 +228,19 @@ def calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel):
 register_env(Ultrasound)
 register_gripper(UltrasoundProbeGripper)
 
-gather_calibration_measurements()
+#gather_calibration_measurements()      # Gives different results every time? 
 
 z_pos = np.genfromtxt('data/calibration_z_pos.csv', delimiter=',')
 z_force = np.genfromtxt('data/calibration_z_force.csv', delimiter=',')
-z_force = [ -x for x in z_force]    # Change positive direction and compensate for offset
+z_force = [ -x - 11 for x in z_force]    # Change positive direction and compensate for offset
 z_vel =  np.genfromtxt('data/calibration_z_vel.csv', delimiter=',')
 
-plot_calibration_simulation_data(z_pos, z_force)
+plot_calibration_simulation_data(z_pos, z_force, z_vel)
 
 # Trim data
 z_pos = z_pos[92:150]
 z_force = z_force[92:150]
 z_vel = z_vel[92:150]
-
 
 plot_calibration_curve_from_sim(z_pos, z_force, z_vel)
 model = calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel)

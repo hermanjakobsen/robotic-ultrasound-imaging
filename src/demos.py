@@ -260,7 +260,8 @@ def gather_calibration_measurements():
         use_object_obs=False,
         control_freq = 50,
         render_camera = None,
-        horizon=200
+        horizon=200,
+        initialization_noise = None,
     )
 
     # Reset the env
