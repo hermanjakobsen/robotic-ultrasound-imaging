@@ -54,16 +54,17 @@ if __name__ == '__main__':
     options['reward_shaping'] = True
 
     # Settings
-    training = False
+    training = True
     training_timesteps = 2e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
-    tb_log_name = '2M_OSC_POSE'
-    load_model_for_training_path = None
+    tb_log_name = '3M_OSC_POSE'
+    load_model_for_training_path = 'trained_models/1M_OSC_POSE'
+    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_1M_OSC_POSE.pkl'
     save_model_folder = 'trained_models'
-    save_model_filename = '2M_OSC_POSE'
+    save_model_filename = '3M_OSC_POSE'
     load_model_folder = 'trained_models'
-    load_model_filename = '2M_OSC_POSE_POSE'
+    load_model_filename = '1M_OSC_POSE'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -71,12 +72,12 @@ if __name__ == '__main__':
     load_vecnormalize_path = os.path.join(load_model_folder, 'vec_normalize_' + load_model_filename + '.pkl')
 
     if training:
-        env = SubprocVecEnv([make_training_env(env_id, options, i) for i in range(num_cpu)])
+        env = SubprocVecEnv([make_training_env(env_id, options, i, seed=123456) for i in range(num_cpu)])
         env = VecNormalize(env)
 
         if isinstance(load_model_for_training_path, str):
-            model = PPO.load(load_model_for_training_path)
-            model.set_env(env)
+            env = VecNormalize.load(load_vecnormalize_for_training_path, env)
+            model = PPO.load(load_model_for_training_path, env=env)
         else:
             model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=tb_log_folder)
         
@@ -102,7 +103,7 @@ if __name__ == '__main__':
 
         while True:
             action, _states = model.predict(obs, deterministic=True)
-            # action = env.action_space.sample()
+            #action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             print(f'reward: {reward}')
             eprew += reward
