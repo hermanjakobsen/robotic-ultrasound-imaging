@@ -7,7 +7,7 @@
         <!--site name="ft_frame" pos="0 0.0185 0" size="0.036 0.02 0.017" rgba="1 0 0 1" type="ellipsoid" group="1"/-->
         <!-- Standard site for robosuite below. -->
         <site name="ft_frame" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/> 
-        <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="2" group="0"/>
+        <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="1" group="0"/>
         <geom name="probe_visual" mesh="probe_mesh" type="mesh" group="1"/>
         <!-- This site was added for visualization. -->
         <site name="grip_site" pos="0 0 0.1050" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/>
