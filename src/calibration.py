@@ -228,19 +228,19 @@ def calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel):
 register_env(Ultrasound)
 register_gripper(UltrasoundProbeGripper)
 
-#gather_calibration_measurements()      # Gives different results every time? 
+#gather_calibration_measurements()      # Gives slightly different results every time? 
 
 z_pos = np.genfromtxt('data/calibration_z_pos.csv', delimiter=',')
 z_force = np.genfromtxt('data/calibration_z_force.csv', delimiter=',')
-z_force = [ -x - 11 for x in z_force]    # Change positive direction and compensate for offset
+z_force = [ -x - 7.5 for x in z_force]    # Change positive direction and compensate for offset
 z_vel =  np.genfromtxt('data/calibration_z_vel.csv', delimiter=',')
 
 plot_calibration_simulation_data(z_pos, z_force, z_vel)
 
 # Trim data
-z_pos = z_pos[92:150]
-z_force = z_force[92:150]
-z_vel = z_vel[92:150]
+z_pos = z_pos[85:100]
+z_force = z_force[85:100]
+z_vel = z_vel[85:100]
 
 plot_calibration_curve_from_sim(z_pos, z_force, z_vel)
 model = calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel)
