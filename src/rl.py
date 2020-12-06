@@ -12,6 +12,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocV
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import EvalCallback
 
 from my_models.grippers import UltrasoundProbeGripper
 from my_environments import Ultrasound, FetchPush
@@ -55,16 +56,16 @@ if __name__ == '__main__':
 
     # Settings
     training = True
-    training_timesteps = 2e6
+    training_timesteps = 4e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
-    tb_log_name = '3M_OSC_POSE'
-    load_model_for_training_path = 'trained_models/1M_OSC_POSE'
+    tb_log_name = '4M_OSC_POSE'
+    load_model_for_training_path = None
     load_vecnormalize_for_training_path = 'trained_models/vec_normalize_1M_OSC_POSE.pkl'
     save_model_folder = 'trained_models'
-    save_model_filename = '3M_OSC_POSE'
+    save_model_filename = '4M_OSC_POSE'
     load_model_folder = 'trained_models'
-    load_model_filename = '1M_OSC_POSE'
+    load_model_filename = '4M_OSC_POSE'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -81,7 +82,15 @@ if __name__ == '__main__':
         else:
             model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=tb_log_folder)
         
-        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name)
+        eval_env_func = make_training_env(env_id, options, rank=num_cpu)
+        eval_env = DummyVecEnv([eval_env_func])
+        eval_env = VecNormalize(eval_env)
+
+        eval_callback = EvalCallback(eval_env, best_model_save_path='./best_models/',
+                             log_path='./logs_best_model/', eval_freq=10000,
+                             deterministic=True, render=False)
+
+        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=eval_callback)
 
         model.save(save_model_path)
         env.save(save_vecnormalize_path)
