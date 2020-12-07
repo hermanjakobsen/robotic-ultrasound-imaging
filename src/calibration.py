@@ -215,9 +215,10 @@ def calibration_curve_from_sim(z_pos, z_force, z_vel):
 
 def plot_calibration_curve_from_sim(z_pos, z_force, z_vel):
     x, y = calibration_curve_from_sim(z_pos, z_force, z_vel)
-    plt.title('Calibration plot')
-    plt.xlabel('z_vel / r')
-    plt.ylabel('z_force / r')
+    plt.xlabel(r'$\frac{z_{vel}}{r}$')
+    plt.ylabel(r'$\frac{z_{force}}{r}$')
+    plt.title('Calibration curve' + ' - ' + 'simulation')
+    plt.grid()
     plt.scatter(x, y)
     plt.show()
 
@@ -232,15 +233,15 @@ register_gripper(UltrasoundProbeGripper)
 
 z_pos = np.genfromtxt('data/calibration_z_pos.csv', delimiter=',')
 z_force = np.genfromtxt('data/calibration_z_force.csv', delimiter=',')
-z_force = [ -x - 7.5 for x in z_force]    # Change positive direction and compensate for offset
+z_force = [ -x - 5.1 for x in z_force]    # Change positive direction and compensate for offset
 z_vel =  np.genfromtxt('data/calibration_z_vel.csv', delimiter=',')
 
 plot_calibration_simulation_data(z_pos, z_force, z_vel)
 
 # Trim data
-z_pos = z_pos[85:100]
-z_force = z_force[85:100]
-z_vel = z_vel[85:100]
+z_pos = z_pos[120:200]
+z_force = z_force[120:200]
+z_vel = z_vel[120:200]
 
 plot_calibration_curve_from_sim(z_pos, z_force, z_vel)
 model = calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel)

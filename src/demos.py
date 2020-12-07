@@ -258,9 +258,9 @@ def gather_calibration_measurements():
         has_offscreen_renderer= False,
         use_camera_obs=False,   
         use_object_obs=False,
-        control_freq = 50,
+        control_freq = 100,
         render_camera = None,
-        horizon=200,
+        horizon=250,
         initialization_noise = None,
     )
 
@@ -285,9 +285,9 @@ def gather_calibration_measurements():
             action = [0, 0, 0, 0, 0, 0]
         if t > 75:
             action = [0, 0, -0.4, 0, 0, 0]
-        if t > 150:
+        if t > 200:
             action = [0, 0, 0.8, 0, 0, 0]
-        if t > 175:
+        if t > 225:
             action = [0, 0, 0, 0, 0, 0]
 
         observation, reward, done, info = env.step(action)
