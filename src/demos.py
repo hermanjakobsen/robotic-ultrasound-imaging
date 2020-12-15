@@ -84,11 +84,13 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
             use_object_obs=False,
             control_freq = 50,
             render_camera = None,
-            horizon=1000      
+            horizon=700      
         )
     
         # Reset the env
         env.reset() 
+
+        h = 0.01    # Timestep (default value from MuJoCo)
 
         sim_time = env.horizon
         robot = env.robots[0]
@@ -97,7 +99,9 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
         joint_torques = np.empty(shape=(sim_time, num_robot_joints))
         ee_forces = np.empty(shape=(sim_time, 3))
         ee_torques = np.empty(shape=(sim_time, 3))
+        gripper_pos = np.empty(shape=(sim_time, 3))
         contact = np.empty(shape=(sim_time, 1))
+        time = np.empty(shape=(sim_time, 1))
 
         goal_joint_pos = [0, -np.pi/4, np.pi/3, -np.pi/2, -np.pi/2, 0]
         goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
@@ -120,6 +124,8 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
             observation, reward, done, info = env.step(action)
 
             joint_torques[t] = robot.torques 
+            gripper_pos[t] = observation['robot0_eef_pos']
+            time[t] = t*h
             ee_forces[t] = transform_ee_frame_axes(robot.ee_force) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_force
             ee_torques[t] = transform_ee_frame_axes(robot.ee_torque) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_torque
             if robot.has_gripper:
@@ -127,9 +133,11 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
 
         if save_data:
             np.savetxt('data/'+experiment_name+str(episode)+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
+            np.savetxt('data/'+experiment_name+str(episode)+'_time_contact_btw_probe_and_body.csv', time, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
+            np.savetxt('data/'+experiment_name+str(episode)+'_gripper_pos_contact_btw_probe_and_body.csv', gripper_pos, delimiter=",")
 
         # close window
         env.close() 

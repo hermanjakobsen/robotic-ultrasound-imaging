@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-params = {'text.usetex' : True,
-          'font.size' : 16,
-          }
+import seaborn as sns
+import pandas as pd
+from scipy import stats
 
 from robosuite.environments.base import register_env
 from my_environments import Ultrasound
@@ -111,14 +111,38 @@ def calculate_calibration_curve(data):
 
 def plot_calibration_curve(data, title = ''):
     x, y = calculate_calibration_curve(data)
+    data_points = np.array([x, y]).transpose()    
 
+    reg_stats = stats.linregress(x, y)
+    slope = reg_stats.slope
+    bias = reg_stats.intercept 
+    r2 = reg_stats.rvalue ** 2
+
+    low_xlim = -80
+    high_xlim = 5
+    low_ylim = -2000
+    high_ylim = 3000
+
+    df = pd.DataFrame(data_points, columns = ['x','y'])
+    g = sns.lmplot(x='x', y='y', data=df, line_kws={'color': 'red'})
+    g = g.set_axis_labels(r'$\frac{v_z}{r}$', r'$\frac{f_{z}}{r}$', fontsize=24).set(xlim=(low_xlim, high_xlim),ylim=(low_ylim, high_ylim))
+
+    plt.text(high_xlim-30, high_ylim-300, r'$\alpha$ = ' + f'{slope:.2f}', fontsize=16)
+    plt.text(high_xlim-30, high_ylim-500, r'$\beta$ = ' + f'{bias:.2f}', fontsize=16)
+    plt.text(high_xlim-30, high_ylim-700, r'$r^2$ = ' + f'{r2:.4f}', fontsize=16)
+
+    plt.title('Calibration curve' + ' - ' + title, fontsize=20)
+    plt.show()
+
+    '''
     plt.figure()
     plt.scatter(x, y)
     plt.xlabel(r'$\frac{z_{vel}}{r}$')
     plt.ylabel(r'$\frac{z_{force}}{r}$')
-    plt.title('Calibration curve' + ' - ' + title)
+    
     plt.grid()
     plt.show()
+    '''
 
 
 def calculate_slope_and_intersection(data_list):
@@ -148,15 +172,16 @@ data_lower_right = slice_data(data_lower_right, 'lower_right')
 data_lower_left = slice_data(data_lower_left, 'lower_left')
 
 slope_and_intersect = calculate_slope_and_intersection([data_upper_right, data_upper_left, data_center, data_lower_right, data_lower_left])
-print(slope_and_intersect)
+#print(slope_and_intersect)
 
-'''
-plot_calibration_curve(data_upper_right, 'upper-right')
-plot_calibration_curve(data_upper_left, 'upper-left')
-plot_calibration_curve(data_center, 'center')
-plot_calibration_curve(data_lower_right, 'lower-right')
-plot_calibration_curve(data_lower_left, 'lower-left')
-'''
+sns.set_theme()
+#plot_calibration_curve(data_upper_right, 'upper-right')
+
+#plot_calibration_curve(data_upper_left, 'upper-left')
+#plot_calibration_curve(data_center, 'center')
+#plot_calibration_curve(data_lower_right, 'lower-right')
+#plot_calibration_curve(data_lower_left, 'lower-left')
+
 '''
 velocity_right = extract_measurement(data_upper_right, 'linear')[:, -1]
 velocity_left = extract_measurement(data_upper_left, 'linear')[:, -1]
@@ -215,11 +240,27 @@ def calibration_curve_from_sim(z_pos, z_force, z_vel):
 
 def plot_calibration_curve_from_sim(z_pos, z_force, z_vel):
     x, y = calibration_curve_from_sim(z_pos, z_force, z_vel)
-    plt.xlabel(r'$\frac{z_{vel}}{r}$')
-    plt.ylabel(r'$\frac{z_{force}}{r}$')
-    plt.title('Calibration curve' + ' - ' + 'simulation')
-    plt.grid()
-    plt.scatter(x, y)
+    data_points = np.array([x, y]).transpose()    
+
+    reg_stats = stats.linregress(x, y)
+    slope = reg_stats.slope
+    bias = reg_stats.intercept 
+    r2 = reg_stats.rvalue ** 2
+
+    low_xlim = -50
+    high_xlim = 5
+    low_ylim = -2000
+    high_ylim = 3000
+
+    df = pd.DataFrame(data_points, columns = ['x','y'])
+    g = sns.lmplot(x='x', y='y', data=df, line_kws={'color': 'red'})
+    g = g.set_axis_labels(r'$\frac{v_z}{r}$', r'$\frac{f_{z}}{r}$', fontsize=24).set(xlim=(low_xlim, high_xlim),ylim=(low_ylim, high_ylim))
+
+    plt.text(high_xlim-10, high_ylim-300, r'$\alpha$ = ' + f'{slope:.2f}', fontsize=16)
+    plt.text(high_xlim-10, high_ylim-500, r'$\beta$ = ' + f'{bias:.2f}', fontsize=16)
+    plt.text(high_xlim-10, high_ylim-700, r'$r^2$ = ' + f'{r2:.4f}', fontsize=16)
+
+    plt.title('Calibration curve' + ' - simulation', fontsize=20)
     plt.show()
 
 def calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel):
@@ -236,7 +277,7 @@ z_force = np.genfromtxt('data/calibration_z_force.csv', delimiter=',')
 z_force = [ -x - 5.1 for x in z_force]    # Change positive direction and compensate for offset
 z_vel =  np.genfromtxt('data/calibration_z_vel.csv', delimiter=',')
 
-plot_calibration_simulation_data(z_pos, z_force, z_vel)
+#plot_calibration_simulation_data(z_pos, z_force, z_vel)
 
 # Trim data
 z_pos = z_pos[120:200]
@@ -244,5 +285,5 @@ z_force = z_force[120:200]
 z_vel = z_vel[120:200]
 
 plot_calibration_curve_from_sim(z_pos, z_force, z_vel)
-model = calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel)
-print(model)
+#model = calculate_slope_and_intersection_from_sim(z_pos, z_force, z_vel)
+#print(model)

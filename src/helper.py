@@ -29,7 +29,7 @@ def register_gripper(gripper_class):
 
 
 def relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd):
-    assert len(goal_joint_pos) == robot.action_dim
+    assert len(goal_joint_pos) == robot.action_dim 
 
     action = [0 for _ in range(robot.action_dim)]
     curr_joint_pos = robot._joint_positions
@@ -48,8 +48,8 @@ def transform_ee_frame_axes(measurement):
     # Want z-axis pointing out of probe
     # x (pandaGripper) = -x (probe)
     # y (pandaGripper) = -z (probe)
-    # z (pandaGripper) = -y (probe)
-    return np.array([-measurement[0], -measurement[2], -measurement[1]])
+    # z (pandaGripper) =  y (probe)
+    return np.array([-measurement[0], -measurement[2], measurement[1]])
 
 
 def print_world_xml_and_soft_torso_params(world):
@@ -98,41 +98,43 @@ def plot_joint_pos(joint_pos_filepath):
     plt.show()
 
 
-def plot_forces_and_contact(forces_filepath, contact_filepath):
+def plot_forces_and_contact(forces_filepath, contact_filepath, time_filepath):
     contact = np.genfromtxt(contact_filepath, delimiter=',')
     forces = np.genfromtxt(forces_filepath, delimiter=',')
+    time = np.genfromtxt(time_filepath, delimiter=',')
+    time = time - time[300]
+    time = time[300:]
 
-    t = np.array([i for i in range(contact.shape[0])])
     axes = ['x', 'y', 'z']
-
     plt.figure()
     for i in range(forces.shape[1]):
-        force = forces[:, i]
-        plt.plot(t, force, label=axes[i])
+        force = forces[300:, i]
+        plt.plot(time, force, label=axes[i])
     
-    plt.plot(t, contact, label='contact')
+    plt.plot(time, contact[300:], label='contact')
     plt.grid()
     plt.legend()
-    plt.xlabel('Time (steps)')
+    plt.xlabel('Time (s)')
     plt.ylabel('Force (N)')
-    plt.title('Interaction forces between the probe and the end effector base')
+    plt.title('Interaction forces between the probe soft body')
     plt.show()
 
 
-def plot_gripper_position(filepath):
-    position = np.genfromtxt(filepath, delimiter=',')
+def plot_gripper_position(position_filepath, time_filepath):
+    position = np.genfromtxt(position_filepath, delimiter=',')
+    time = np.genfromtxt(time_filepath, delimiter=',')
+    time = time - time[300]
+    time = time[300:]
 
-    t = np.array([i for i in range(position.shape[0])])
     axes = ['x', 'y', 'z']
-
     plt.figure()
     for i in range(position.shape[1]):
-        force = position[:, i]
-        plt.plot(t, force, label=axes[i])
+        pos = position[300:, i]
+        plt.plot(time, pos, label=axes[i])
     
     plt.grid()
     plt.legend()
-    plt.xlabel('Time (steps)')
+    plt.xlabel('Time (s)')
     plt.ylabel('Position (m)')
     plt.title('Position of gripper')
     plt.show()
