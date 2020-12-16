@@ -51,21 +51,21 @@ if __name__ == '__main__':
     options['use_object_obs'] = True
     options['control_freq'] = 50
     options['render_camera'] = None
-    options['horizon'] = 1500
+    options['horizon'] = 1000
     options['reward_shaping'] = True
 
     # Settings
-    training = True
-    training_timesteps = 4e6
+    training = False
+    training_timesteps = 2e6
     num_cpu = 4
     tb_log_folder = 'ppo_fetchpush_tensorboard'
-    tb_log_name = '4M_OSC_POSE'
+    tb_log_name = '2M_OSC_POSE'
     load_model_for_training_path = None
-    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_1M_OSC_POSE.pkl'
+    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_6M_OSC_POSE.pkl'
     save_model_folder = 'trained_models'
-    save_model_filename = '4M_OSC_POSE'
+    save_model_filename = '2M_OSC_POSE'
     load_model_folder = 'trained_models'
-    load_model_filename = '4M_OSC_POSE'
+    load_model_filename = '2M_OSC_POSE'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     load_vecnormalize_path = os.path.join(load_model_folder, 'vec_normalize_' + load_model_filename + '.pkl')
 
     if training:
-        env = SubprocVecEnv([make_training_env(env_id, options, i, seed=123456) for i in range(num_cpu)])
+        env = SubprocVecEnv([make_training_env(env_id, options, i) for i in range(num_cpu)])
         env = VecNormalize(env)
 
         if isinstance(load_model_for_training_path, str):
@@ -87,14 +87,14 @@ if __name__ == '__main__':
         eval_env = VecNormalize(eval_env)
 
         eval_callback = EvalCallback(eval_env, best_model_save_path='./best_models/',
-                             log_path='./logs_best_model/', eval_freq=10000,
-                             deterministic=True, render=False)
+                             log_path='./logs_best_model/',
+                             deterministic=True, render=False, n_eval_episodes=10)
 
         model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=eval_callback)
 
         model.save(save_model_path)
         env.save(save_vecnormalize_path)
-    
+
     else:
         options['has_renderer'] = True
         register_gripper(UltrasoundProbeGripper)

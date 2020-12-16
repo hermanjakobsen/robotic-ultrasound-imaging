@@ -118,18 +118,43 @@ def plot_calibration_curve(data, title = ''):
     bias = reg_stats.intercept 
     r2 = reg_stats.rvalue ** 2
 
-    low_xlim = -80
-    high_xlim = 5
-    low_ylim = -2000
-    high_ylim = 3000
+    if title == 'upper-right':
+        low_xlim = -175
+        high_xlim = 5
+        low_ylim = -1500
+        high_ylim = 1000
+
+    if title == 'upper-left':
+        low_xlim = -210
+        high_xlim = 5
+        low_ylim = -1500
+        high_ylim = 6000
+
+    if title == 'center':
+        low_xlim = -135
+        high_xlim = 5
+        low_ylim = -1500
+        high_ylim = 2000
+
+    if title == 'lower-right':
+        low_xlim = -120
+        high_xlim = 5
+        low_ylim = -1500
+        high_ylim = 6000
+
+    else:
+        low_xlim = -80
+        high_xlim = 5
+        low_ylim = -1500
+        high_ylim = 3000
 
     df = pd.DataFrame(data_points, columns = ['x','y'])
     g = sns.lmplot(x='x', y='y', data=df, line_kws={'color': 'red'})
-    g = g.set_axis_labels(r'$\frac{v_z}{r}$', r'$\frac{f_{z}}{r}$', fontsize=24).set(xlim=(low_xlim, high_xlim),ylim=(low_ylim, high_ylim))
+    g = g.set_axis_labels(r'$\frac{v_z}{r}$', r'$\frac{f_{z}}{r}$', fontsize=32).set(xlim=(low_xlim, high_xlim),ylim=(low_ylim, high_ylim))
 
-    plt.text(high_xlim-30, high_ylim-300, r'$\alpha$ = ' + f'{slope:.2f}', fontsize=16)
-    plt.text(high_xlim-30, high_ylim-500, r'$\beta$ = ' + f'{bias:.2f}', fontsize=16)
-    plt.text(high_xlim-30, high_ylim-700, r'$r^2$ = ' + f'{r2:.4f}', fontsize=16)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.15), r'$\alpha$ = ' + f'{slope:.2f}', fontsize=24)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.10), r'$\beta$ = ' + f'{bias:.2f}', fontsize=24)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.05), r'$r^2$ = ' + f'{r2:.4f}', fontsize=24)
 
     plt.title('Calibration curve' + ' - ' + title, fontsize=20)
     plt.show()
@@ -256,9 +281,9 @@ def plot_calibration_curve_from_sim(z_pos, z_force, z_vel):
     g = sns.lmplot(x='x', y='y', data=df, line_kws={'color': 'red'})
     g = g.set_axis_labels(r'$\frac{v_z}{r}$', r'$\frac{f_{z}}{r}$', fontsize=24).set(xlim=(low_xlim, high_xlim),ylim=(low_ylim, high_ylim))
 
-    plt.text(high_xlim-10, high_ylim-300, r'$\alpha$ = ' + f'{slope:.2f}', fontsize=16)
-    plt.text(high_xlim-10, high_ylim-500, r'$\beta$ = ' + f'{bias:.2f}', fontsize=16)
-    plt.text(high_xlim-10, high_ylim-700, r'$r^2$ = ' + f'{r2:.4f}', fontsize=16)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.15), r'$\alpha$ = ' + f'{slope:.2f}', fontsize=24)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.10), r'$\beta$ = ' + f'{bias:.2f}', fontsize=24)
+    plt.text(low_xlim - int(low_xlim*0.15), low_ylim-int((low_ylim-high_ylim)*0.05), r'$r^2$ = ' + f'{r2:.4f}', fontsize=24)
 
     plt.title('Calibration curve' + ' - simulation', fontsize=20)
     plt.show()
