@@ -1,24 +1,30 @@
+
 from collections import OrderedDict
 import numpy as np
 
 from robosuite.utils.transform_utils import convert_quat
 from robosuite.utils.mjcf_utils import CustomMaterial
 
-from robosuite.environments.robot_env import RobotEnv
-from robosuite.robots import SingleArm
+from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
+from robosuite.models.grippers import GripperModel
+from robosuite.models.base import MujocoModel
 
 from robosuite.models.arenas import TableArena
 from robosuite.models.objects import BoxObject
-from robosuite.models.tasks import ManipulationTask, UniformRandomSampler
+from robosuite.models.tasks import ManipulationTask
+from robosuite.utils.placement_samplers import UniformRandomSampler
+from robosuite.utils.observables import Observable, sensor
 
 
-class FetchPush(RobotEnv):
+class FetchPush(SingleArmEnv):
     """
-    This class corresponds to the fetch/push task for a single robot arm. Many similarities with lifting task.
+    This class corresponds to the fetchpush task for a single robot arm.
     Args:
         robots (str or list of str): Specification for specific robot arm(s) to be instantiated within this env
             (e.g: "Sawyer" would generate one arm; ["Panda", "Panda", "Sawyer"] would generate three robot arms)
             Note: Must be a single single-arm robot!
+        env_configuration (str): Specifies how to position the robots within the environment (default is "default").
+            For most single arm environments, this argument has no impact on the robot setup.
         controller_configs (str or list of dict): If set, contains relevant controller parameters for creating a
             custom controller. Else, uses the default controller for this specific task. Should either be single
             dict if same controller is to be used for all robots or else it should be a list of the same length as
@@ -27,9 +33,6 @@ class FetchPush(RobotEnv):
             gripper models from gripper factory. Default is "default", which is the default grippers(s) associated
             with the robot(s) the 'robots' specification. None removes the gripper, and any other (valid) model
             overrides the default gripper. Should either be single str if same gripper type is to be used for all
-            robots or else it should be a list of the same length as "robots" param
-        gripper_visualizations (bool or list of bool): True if using gripper visualization.
-            Useful for teleoperation. Should either be single bool if gripper visualization is to be used for all
             robots or else it should be a list of the same length as "robots" param
         initialization_noise (dict or list of dict): Dict containing the initialization noise parameters.
             The expected keys and corresponding value types are specified below:
@@ -51,11 +54,9 @@ class FetchPush(RobotEnv):
         reward_scale (None or float): Scales the normalized reward function by the amount specified.
             If None, environment reward remains unnormalized
         reward_shaping (bool): if True, use dense rewards.
-        placement_initializer (ObjectPositionSampler instance): if provided, will
+        placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
-        use_indicator_object (bool): if True, sets up an indicator object that
-            is useful for debugging.
         has_renderer (bool): If true, render the simulation state in
             a viewer instead of headless mode.
         has_offscreen_renderer (bool): True if using off-screen rendering
@@ -64,6 +65,9 @@ class FetchPush(RobotEnv):
             the user using the mouse
         render_collision_mesh (bool): True if rendering collision meshes in camera. False otherwise.
         render_visual_mesh (bool): True if rendering visual meshes in camera. False otherwise.
+        render_gpu_device_id (int): corresponds to the GPU device id to use for offscreen rendering.
+            Defaults to -1, in which case the device will be inferred from environment variables
+            (GPUS or CUDA_VISIBLE_DEVICES).
         control_freq (float): how many control signals to receive in every second. This sets the amount of
             simulation time that passes between every action input.
         horizon (int): Every episode lasts for exactly @horizon timesteps.
@@ -92,25 +96,24 @@ class FetchPush(RobotEnv):
     def __init__(
         self,
         robots,
+        env_configuration="default",
         controller_configs=None,
         gripper_types="default",
-        gripper_visualizations=False,
         initialization_noise="default",
         table_full_size=(0.8, 0.8, 0.05),
-        table_friction=(5e-3, 5e-3, 1e-4),
+        table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        distance_threshold = 0.06,
         placement_initializer=None,
-        use_indicator_object=False,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
         render_collision_mesh=False,
         render_visual_mesh=True,
-        control_freq=10,
+        render_gpu_device_id=-1,
+        control_freq=20,
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
@@ -119,46 +122,35 @@ class FetchPush(RobotEnv):
         camera_widths=256,
         camera_depths=False,
     ):
-        # First, verify that only one robot is being inputted
-        self._check_robot_configuration(robots)
-
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
+        self.table_offset = np.array((0, 0, 0.8))
 
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
-        self.distance_threshold = distance_threshold
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
         # object placement initializer
-        if placement_initializer:
-            self.placement_initializer = placement_initializer
-        else:
-            self.placement_initializer = UniformRandomSampler(
-                x_range=[-0.22, 0.22],
-                y_range=[-0.22, 0.22],
-                ensure_object_boundary_in_range=False,
-                rotation=None,
-                z_offset=0.002,
-            )
+        self.placement_initializer = placement_initializer
 
         super().__init__(
             robots=robots,
+            env_configuration=env_configuration,
             controller_configs=controller_configs,
+            mount_types="default",
             gripper_types=gripper_types,
-            gripper_visualizations=gripper_visualizations,
             initialization_noise=initialization_noise,
             use_camera_obs=use_camera_obs,
-            use_indicator_object=use_indicator_object,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
             render_camera=render_camera,
             render_collision_mesh=render_collision_mesh,
             render_visual_mesh=render_visual_mesh,
+            render_gpu_device_id=render_gpu_device_id,
             control_freq=control_freq,
             horizon=horizon,
             ignore_done=ignore_done,
@@ -169,14 +161,9 @@ class FetchPush(RobotEnv):
             camera_depths=camera_depths,
         )
 
-    def _distance(self, goal_a, goal_b):
-        assert goal_a.shape == goal_b.shape
-        return np.linalg.norm(goal_a - goal_b)
-
     def reward(self, action=None):
         """
         Reward function for the task.
-
         Args:
             action (np array): [NOT USED]
         Returns:
@@ -184,11 +171,12 @@ class FetchPush(RobotEnv):
         """
         reward = .0
 
-        cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-        goal_pos = self.sim.data.body_xpos[self.goal_cube_body_id]
+        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        goal_pos = np.array(self.sim.data.body_xpos[self.goal_body_id])
         gripper_site_pos = self.sim.data.site_xpos[self.robots[0].eef_site_id]
-        cube_to_goal_dist = self._distance(cube_pos, goal_pos)
-        gripper_to_cube_dist = self._distance(gripper_site_pos, cube_pos)
+
+        cube_to_goal_dist = np.linalg.norm(cube_pos - goal_pos)
+        gripper_to_cube_dist = np.linalg.norm(gripper_site_pos - cube_pos)
 
         if self.reward_shaping:
             # Return large reward if cube has been moved to goal
@@ -198,26 +186,14 @@ class FetchPush(RobotEnv):
             # Reaching reward 
             reward += 1 - np.tanh(10.0 * gripper_to_cube_dist)
    
-            if self._is_gripper_touching_cube():
+            if self.check_contact(self.robots[0].gripper, self.cube):
                 reward += 0.5                                           # Reward for touching cube
                 reward += 1.5 - 1.5 * np.tanh(10.0 * cube_to_goal_dist) # Reward for pushing cube
-
-            # Return large penalty if robot has moved significantly away from cube
-            #if self._has_moved_significantly_away_from_cube():
-            #    reward += -2
-            
-             # Reward for touching cube and pushing toward goal
-            #if self._is_gripper_touching_cube():
-            #    reward += 0.1 + (1 - np.tanh(10.0 * cube_to_goal_dist))
-
-            # Give penalty for touching table
-            #if self._is_gripper_touching_table():
-            #    reward -= 0.1
             
         else:
-            reward += -float(not self._check_success())
+            reward -= float(not self._check_success())
         
-        return reward            
+        return reward     
 
     def _load_model(self):
         """
@@ -225,99 +201,122 @@ class FetchPush(RobotEnv):
         """
         super()._load_model()
 
-        # Verify the correct robot has been loaded
-        assert isinstance(self.robots[0], SingleArm), \
-            "Error: Expected one single-armed robot! Got {} type instead.".format(type(self.robots[0]))
-
         # Adjust base pose accordingly
         xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
         self.robots[0].robot_model.set_base_xpos(xpos)
 
         # load model for table top workspace
-        self.mujoco_arena = TableArena(
+        mujoco_arena = TableArena(
             table_full_size=self.table_full_size,
             table_friction=self.table_friction,
-            table_offset=(0, 0, 0.8),
+            table_offset=self.table_offset,
         )
-        if self.use_indicator_object:
-            self.mujoco_arena.add_pos_indicator()
 
         # Arena always gets set to zero origin
-        self.mujoco_arena.set_origin([0, 0, 0])
+        mujoco_arena.set_origin([0, 0, 0])
 
         # initialize objects of interest
-        tex_attrib = {
-            "type": "cube",
-        }
-        mat_attrib = {
-            "texrepeat": "1 1",
-            "specular": "0.4",
-            "shininess": "0.1",
-        }
-        redwood = CustomMaterial(
-            texture="WoodRed",
-            tex_name="redwood",
-            mat_name="redwood_mat",
-            tex_attrib=tex_attrib,
-            mat_attrib=mat_attrib,
-        )
-        cube = BoxObject(
+        self.cube = BoxObject(
             name="cube",
             size_min=[0.020, 0.020, 0.020],  # [0.015, 0.015, 0.015],
             size_max=[0.022, 0.022, 0.022],  # [0.018, 0.018, 0.018])
             rgba=[1, 0, 0, 1],
-            material=redwood,
-            friction=[0.5, 5e-3, 1e-4]
         )
-
-        goal_cube = BoxObject(
-            name="goal_cube",
+        self.goal = BoxObject(
+            name="goal",
             size_min=[0.005, 0.005, 0.005],
             size_max=[0.005, 0.005, 0.005], 
             rgba=[0, 0, 1, 1],
-            density = 11342,            # Density of lead such that the goal won't be moved
+            density = 11342,            # Density of lead such that the goal is hard to move
         )
 
-        self.mujoco_objects = OrderedDict([("cube", cube), ("goal_cube", goal_cube)])
-        self.n_objects = len(self.mujoco_objects)
+        # Create placement initializer
+        if self.placement_initializer is not None:
+            self.placement_initializer.reset()
+            self.placement_initializer.add_objects([self.cube, self.goal])
+        else:
+            self.placement_initializer = UniformRandomSampler(
+                name="ObjectSampler",
+                mujoco_objects=[self.cube, self.goal],
+                x_range=[-0.20, 0.20],
+                y_range=[-0.20, 0.20],
+                rotation=None,
+                ensure_object_boundary_in_range=False,
+                ensure_valid_placement=True,
+                reference_pos=self.table_offset,
+                z_offset=0.01,
+            )
 
         # task includes arena, robot, and objects of interest
         self.model = ManipulationTask(
-            mujoco_arena=self.mujoco_arena, 
+            mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots], 
-            mujoco_objects=self.mujoco_objects, 
-            visual_objects=None, 
-            initializer=self.placement_initializer,
+            mujoco_objects=[self.cube, self.goal],
         )
-        self.model.place_objects()
+       
 
-
-    def _get_reference(self):
+    def _setup_references(self):
         """
         Sets up references to important components. A reference is typically an
         index or a list of indices that point to the corresponding elements
         in a flatten array, which is how MuJoCo stores physical simulation data.
         """
-        super()._get_reference()
+        super()._setup_references()
 
         # Additional object references from this env
-        self.cube_body_id = self.sim.model.body_name2id("cube")
-        self.goal_cube_body_id = self.sim.model.body_name2id("goal_cube")
+        self.cube_body_id = self.sim.model.body_name2id(self.cube.root_body)
+        self.goal_body_id = self.sim.model.body_name2id(self.goal.root_body)
 
-        if self.robots[0].gripper_type == 'UltrasoundProbeGripper': 
-            self.probe_geom_id = [
-                self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["probe"]
-            ]
-        elif self.robots[0].has_gripper:
-            self.l_finger_geom_ids = [
-                self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["left_finger"]
-            ]
-            self.r_finger_geom_ids = [
-                self.sim.model.geom_name2id(x) for x in self.robots[0].gripper.important_geoms["right_finger"]
-            ]
-        self.cube_geom_id = self.sim.model.geom_name2id("cube")
-        self.goal_cube_geom_id = self.sim.model.geom_name2id("goal_cube")
-        self.table_geom_id = self.sim.model.geom_name2id("table_collision")
+    def _setup_observables(self):
+        """
+        Sets up observables to be used for this environment. Creates object-based observables if enabled
+        Returns:
+            OrderedDict: Dictionary mapping observable names to its corresponding Observable object
+        """
+        observables = super()._setup_observables()
+
+        # low-level object information
+        if self.use_object_obs:
+            # Get robot prefix and define observables modality
+            pf = self.robots[0].robot_model.naming_prefix
+            modality = "object"
+
+            # cube-related observables
+            @sensor(modality=modality)
+            def cube_pos(obs_cache):
+                return np.array(self.sim.data.body_xpos[self.cube_body_id])
+
+            @sensor(modality=modality)
+            def cube_quat(obs_cache):
+                return convert_quat(np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw")
+
+            @sensor(modality=modality)
+            def gripper_to_cube_pos(obs_cache):
+                return obs_cache[f"{pf}eef_pos"] - obs_cache["cube_pos"] if \
+                    f"{pf}eef_pos" in obs_cache and "cube_pos" in obs_cache else np.zeros(3)
+
+            # goal-related observables
+            @sensor(modality=modality)
+            def goal_pos(obs_cache):
+                return np.array(self.sim.data.body_xpos[self.goal_body_id])
+
+            @sensor(modality=modality)
+            def cube_to_goal_pos(obs_cache):
+                return obs_cache["cube_pos"] - obs_cache["goal_pos"] if \
+                    "cube_pos" in obs_cache and "goal_pos" in obs_cache else np.zeros(3)
+
+            sensors = [cube_pos, cube_quat, gripper_to_cube_pos, goal_pos, cube_to_goal_pos]
+            names = [s.__name__ for s in sensors]
+
+            # Create observables
+            for name, s in zip(names, sensors):
+                observables[name] = Observable(
+                    name=name,
+                    sensor=s,
+                    sampling_rate=self.control_freq,
+                )
+
+        return observables
 
     def _reset_internal(self):
         """
@@ -329,182 +328,36 @@ class FetchPush(RobotEnv):
         if not self.deterministic_reset:
 
             # Sample from the placement initializer for all objects
-            obj_pos, obj_quat = self.model.place_objects()
+            object_placements = self.placement_initializer.sample()
 
             # Loop through all objects and reset their positions
-            for i, (obj_name, _) in enumerate(self.mujoco_objects.items()):
-                self.sim.data.set_joint_qpos(obj_name + "_jnt0", np.concatenate([np.array(obj_pos[i]), np.array(obj_quat[i])]))
+            for obj_pos, obj_quat, obj in object_placements.values():
+                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
 
-
-    def _get_observation(self):
+    def visualize(self, vis_settings):
         """
-        Returns an OrderedDict containing observations [(name_string, np.array), ...].
-        Important keys:
-            `'robot-state'`: contains robot-centric information.
-            `'object-state'`: requires @self.use_object_obs to be True. Contains object-centric information.
-            `'image'`: requires @self.use_camera_obs to be True. Contains a rendered frame from the simulation.
-            `'depth'`: requires @self.use_camera_obs and @self.camera_depth to be True.
-            Contains a rendered depth map from the simulation
-        Returns:
-            OrderedDict: Observations from the environment
+        In addition to super call, visualize gripper site proportional to the distance to the cube.
+        Args:
+            vis_settings (dict): Visualization keywords mapped to T/F, determining whether that specific
+                component should be visualized. Should have "grippers" keyword as well as any other relevant
+                options specified.
         """
-        di = super()._get_observation()
+        # Run superclass method first
+        super().visualize(vis_settings=vis_settings)
 
-        # Get robot prefix
-        pr = self.robots[0].robot_model.naming_prefix
+        # Color the gripper visualization site according to its distance to the cube
+        if vis_settings["grippers"]:
+            self._visualize_gripper_to_target(gripper=self.robots[0].gripper, target=self.cube)
 
-        if self.robots[0].has_gripper:
-            # Checking if the UltrasoundProbeGripper is used
-            if self.robots[0].gripper.dof == 0:
-                # Remove unused keys (no joints in gripper)
-                di.pop('robot0_gripper_qpos', None)
-                di.pop('robot0_gripper_qvel', None)
-        
-
-        # low-level object information
-        if self.use_object_obs:
-
-            # position and rotation of object
-            goal_pos = np.array(self.sim.data.body_xpos[self.goal_cube_body_id])
-            cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
-            di["cube_pos"] = cube_pos
-            di["goal_pos"] = goal_pos
-            di[pr + "cube_to_goal"] = cube_pos - goal_pos
-
-            cube_quat = convert_quat(
-                np.array(self.sim.data.body_xquat[self.cube_body_id]), to="xyzw"
-            )
-
-            gripper_site_pos = np.array(self.sim.data.site_xpos[self.robots[0].eef_site_id])
-            di[pr + "gripper_to_cube"] = gripper_site_pos - cube_pos
-            
-            
-            # Used for GymWrapper observations (Robot state will also default be added e.g. eef position)
-            di["object-state"] = np.concatenate(
-                [
-                    cube_pos, 
-                    cube_quat, 
-                    goal_pos, 
-                    di[pr + "gripper_to_cube"], 
-                    di[pr + "gripper_to_cube"],
-                ]
-            )
-        return di
-    
     def _check_success(self):
         """
         Check if cube has been pushed to goal.
         Returns:
             bool: True if cube has been pushed to goal
         """
-        cube_pos = self.sim.data.body_xpos[self.cube_body_id]
-        goal_pos = self.sim.data.body_xpos[self.goal_cube_body_id]
-        cube_to_goal_dist = self._distance(cube_pos, goal_pos)
+        cube_pos = np.array(self.sim.data.body_xpos[self.cube_body_id])
+        goal_pos = np.array(self.sim.data.body_xpos[self.goal_body_id])
+        cube_to_goal_dist = np.linalg.norm(goal_pos - cube_pos)
 
-        return cube_to_goal_dist < self.distance_threshold
-
-    '''
-    def _has_moved_significantly_away_from_cube(self):
-        """
-        Check if the robot has moved away from cube between steps.
-        Returns:
-            bool: True if episode is the robot's end-effector has moved far away from cube
-        """
-        return self.gripper_to_cube_dist > self.initial_gripper_to_cube_dist + 0.12
-
-
-    def _check_terminated(self):
-        """
-        Check if the task has completed one way or another. The following conditions lead to termination:
-            - Task completion (cube pushed to goal) Should this be added?
-            - Robot moving away from cube
-        Returns:
-            bool: True if episode is terminated
-        """
-        return self._has_moved_significantly_away_from_cube()
-    '''
-    def _is_gripper_touching_cube(self):
-        """
-        Check if the gripper is in contact with the cube    
-        Returns:
-            bool: True if contact
-        """
-        for contact in self.sim.data.contact[: self.sim.data.ncon]:
-            geom_name1 =  self.sim.model.geom_id2name(contact.geom1)
-            geom_name2 = self.sim.model.geom_id2name(contact.geom2)
-
-            if (
-                geom_name1 in self.robots[0].gripper.contact_geoms and geom_name2 == self.sim.model.geom_id2name(self.cube_geom_id)
-                or geom_name2 in self.robots[0].gripper.contact_geoms and geom_name1 == self.sim.model.geom_id2name(self.cube_geom_id)
-            ):
-                return True
-
-        return False
-
-    def _is_gripper_touching_table(self):
-        """
-        Check if the gripper is in contact with the tabletop
-        Returns:
-            bool: True if contact
-        """
-        for contact in self.sim.data.contact[: self.sim.data.ncon]:
-            geom_name1 =  self.sim.model.geom_id2name(contact.geom1)
-            geom_name2 = self.sim.model.geom_id2name(contact.geom2)
-
-            if (
-                geom_name1 in self.robots[0].gripper.contact_geoms and geom_name2 == self.sim.model.geom_id2name(self.table_geom_id)
-                or geom_name2 in self.robots[0].gripper.contact_geoms and geom_name1 == self.sim.model.geom_id2name(self.table_geom_id)
-            ):
-                return True
-
-        return False
-
-    def _post_action(self, action):
-        """
-        In addition to super method, add additional info if requested
-        Args:
-            action (np.array): Action to execute within the environment
-        Returns:
-            3-tuple:
-                - (float) reward from the environment
-                - (bool) whether the current episode is completed or not
-                - (dict) info about current env step
-        """
-        reward, done, info = super()._post_action(action)
-        #done = done or self._check_terminated()
-        return reward, done, info
-
-    def _visualization(self):
-        """
-        Do any needed visualization here. Overrides superclass implementations.
-        """
-
-        # color the gripper site appropriately based on distance to cube
-        if self.robots[0].gripper_visualization:
-            # get distance to cube
-            cube_site_id = self.sim.model.site_name2id("cube")
-            dist = np.sum(
-                np.square(
-                    self.sim.data.site_xpos[cube_site_id]
-                    - self.sim.data.get_site_xpos(self.robots[0].gripper.visualization_sites["grip_site"])
-                )
-            )
-
-            # set RGBA for the EEF site here
-            max_dist = 0.1
-            scaled = (1.0 - min(dist / max_dist, 1.)) ** 15
-            rgba = np.zeros(4)
-            rgba[0] = 1 - scaled
-            rgba[1] = scaled
-            rgba[3] = 0.5
-
-            self.sim.model.site_rgba[self.robots[0].eef_site_id] = rgba
-
-    def _check_robot_configuration(self, robots):
-        """
-        Sanity check to make sure the inputted robots and configuration is acceptable
-        Args:
-            robots (str or list of str): Robots to instantiate within this env
-        """
-        if type(robots) is list:
-            assert len(robots) == 1, "Error: Only one robot should be inputted for this task!"
+        # cube is within a margin away from goal
+        return cube_to_goal_dist < 0.05 
