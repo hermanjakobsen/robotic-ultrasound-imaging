@@ -60,7 +60,7 @@ def controller_demo(experiment_name, save_data=False):
             action = relative2absolute_joint_pos_commands([ref_values[1], 0, 0, 0, 0, 0], robot, kp, kd)
 
         observation, reward, done, info = env.step(action)
-        joint_pos_obs[t] = observation['robot0_joint_pos']
+        joint_pos_obs[t] = np.arccos(observation['robot0_joint_pos_cos'])
 
     # close window
     env.close() 
@@ -128,15 +128,15 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
             time[t] = t*h
             ee_forces[t] = transform_ee_frame_axes(robot.ee_force) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_force
             ee_torques[t] = transform_ee_frame_axes(robot.ee_torque) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_torque
-            if robot.has_gripper:
-                contact[t] = observation['contact'][0]
+            #if robot.has_gripper:
+            #    contact[t] = observation['contact'][0]
 
         if save_data:
             np.savetxt('data/'+experiment_name+str(episode)+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_time_contact_btw_probe_and_body.csv', time, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
-            np.savetxt('data/'+experiment_name+str(episode)+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
+            #np.savetxt('data/'+experiment_name+str(episode)+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_gripper_pos_contact_btw_probe_and_body.csv', gripper_pos, delimiter=",")
 
         # close window
@@ -147,7 +147,7 @@ def standard_mujoco_py_demo():
 
     env = suite.make(
             'Ultrasound',
-            robots='UR5e',
+            robots='Panda',
             controller_configs=None,
             gripper_types='UltrasoundProbeGripper',
             has_renderer = True,
@@ -156,7 +156,7 @@ def standard_mujoco_py_demo():
             use_object_obs=False,
             control_freq = 50,
             render_camera = None,
-            horizon=500      
+            horizon=1500      
         )
 
     sim, viewer = create_mjsim_and_viewer(env)
@@ -183,6 +183,7 @@ def change_parameters_of_soft_body_demo(episodes):
             render_camera = None,
             horizon=800      
         )
+        env.reset()
 
         print_world_xml_and_soft_torso_params(env.model)
 
@@ -194,65 +195,6 @@ def change_parameters_of_soft_body_demo(episodes):
         
         glfw.destroy_window(viewer.window)
 
-
-def fetch_push_gym_demo():
-    env = GymWrapper(
-        suite.make(
-            'FetchPush',
-            robots='Panda',
-            controller_configs=None,
-            gripper_types='UltrasoundProbeGripper',
-            has_renderer = True,
-            has_offscreen_renderer= False,
-            use_camera_obs=False,
-            use_object_obs=True,
-            control_freq = 50,
-            render_camera = None,
-        )
-    )
-    for i_episode in range(20):
-        observation = env.reset()
-        for t in range(500):
-            env.render()
-            action = env.action_space.sample()
-            observation, reward, done, info = env.step(action)
-            if done:
-                print("Episode finished after {} timesteps".format(t + 1))
-                break
-
-
-def drop_cube_on_body_demo():
-    world = MujocoWorldBase()
-    arena = EmptyArena()
-    arena.set_origin([0, 0, 0])
-    world.merge(arena)
-
-    soft_torso = SoftTorsoObject()
-    obj = soft_torso.get_collision()
-
-    box = BoxObject()
-    box_obj = box.get_collision()
-
-    obj.append(new_joint(name='soft_torso_free_joint', type='free'))
-    box_obj.append(new_joint(name='box_free_joint', type='free'))
-
-    world.merge_asset(soft_torso)
-
-    world.worldbody.append(obj)
-    world.worldbody.append(box_obj)
-
-    # Place torso on ground
-    collision_soft_torso = world.worldbody.find("./body")
-    collision_soft_torso.set("pos", array_to_string(np.array([-0.1, 0, 0.1])))
-
-    model = world.get_model(mode="mujoco_py")
-    sim = MjSim(model)
-    viewer = MjViewer(sim)
-
-    for _ in range(10000):
-   
-        sim.step()
-        viewer.render()
 
 
 def gather_calibration_measurements():

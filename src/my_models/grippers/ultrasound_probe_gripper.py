@@ -19,26 +19,8 @@ class UltrasoundProbeGripper(GripperModel):
         return action
 
     @property
-    def dof(self):
-        return 0
-
-    @property
     def init_qpos(self):
-        return np.array([])
-
-    @property
-    def _joints(self):
-        return []
-
-    @property
-    def _actuators(self):
-        return []
-
-    @property
-    def _contact_geoms(self):
-        return [
-            "probe_collision"
-        ]
+        return None
 
     @property
     def _important_geoms(self):

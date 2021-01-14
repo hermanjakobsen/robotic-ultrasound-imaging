@@ -53,10 +53,11 @@ def transform_ee_frame_axes(measurement):
 
 
 def print_world_xml_and_soft_torso_params(world):
-    soft_torso = world.other_mujoco_objects['soft_torso']
+    soft_torso = world.mujoco_objects[0]
     composite = soft_torso._get_composite_element()
-    print(composite.get('solrefsmooth'))
     print(world.get_xml())
+    print(composite.get('solrefsmooth'))
+    print('\n\n')
 
 
 def create_mjsim_and_viewer(env):

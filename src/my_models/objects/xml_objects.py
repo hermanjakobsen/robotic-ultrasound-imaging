@@ -3,22 +3,13 @@ import numpy as np
 from robosuite.models.objects import MujocoXMLObject
 from robosuite.utils.mjcf_utils import array_to_string
 
-class TorsoObject(MujocoXMLObject):
-    """
-    Torso object
-    """
-
-    def __init__(self):
-        super().__init__("my_models/assets/objects/human_torso.xml")
-
-
 class SoftTorsoObject(MujocoXMLObject):
     """
     Soft object
     """
 
-    def __init__(self, damping=None, stiffness=None):
-        super().__init__("my_models/assets/objects/soft_human_torso.xml")
+    def __init__(self, name, damping=None, stiffness=None):
+        super().__init__("my_models/assets/objects/soft_human_torso.xml", name=name, duplicate_collision_geoms=False)
 
         self.damping = damping
         self.stiffness = stiffness
@@ -30,8 +21,7 @@ class SoftTorsoObject(MujocoXMLObject):
 
 
     def _get_composite_element(self):
-        collision = self.worldbody.find("./body/body[@name='collision']")
-        return collision.find("./composite")
+        return self._obj.find("./composite")
 
 
     def set_damping(self, damping):
@@ -71,5 +61,5 @@ class BoxObject(MujocoXMLObject):
     Box object
     """
 
-    def __init__(self):
-        super().__init__("my_models/assets/objects/box.xml")
+    def __init__(self, name):
+        super().__init__("my_models/assets/objects/box.xml", name=name)
