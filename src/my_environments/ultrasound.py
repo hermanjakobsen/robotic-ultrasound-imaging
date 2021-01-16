@@ -245,7 +245,21 @@ class Ultrasound(SingleArmEnv):
         """
         observables = super()._setup_observables()
 
-        # Add relevant observations here
+        # cube-related observables
+        @sensor(modality="gripper")
+        def contact(obs_cache):
+            return self.check_contact(self.robots[0].gripper)
+
+        sensors = [contact]
+        names = [s.__name__ for s in sensors]
+
+        # Create observables
+        for name, s in zip(names, sensors):
+            observables[name] = Observable(
+                name=name,
+                sensor=s,
+                sampling_rate=self.control_freq,
+            )
 
         return observables
 

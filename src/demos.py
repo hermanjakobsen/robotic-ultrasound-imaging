@@ -128,15 +128,15 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
             time[t] = t*h
             ee_forces[t] = transform_ee_frame_axes(robot.ee_force) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_force
             ee_torques[t] = transform_ee_frame_axes(robot.ee_torque) if robot.gripper_type == 'UltrasoundProbeGripper' else robot.ee_torque
-            #if robot.has_gripper:
-            #    contact[t] = observation['contact'][0]
+            if robot.has_gripper:
+                contact[t] = observation['contact']
 
         if save_data:
             np.savetxt('data/'+experiment_name+str(episode)+'_joint_torques_contact_btw_probe_and_body.csv', joint_torques, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_time_contact_btw_probe_and_body.csv', time, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_forces_contact_btw_probe_and_body.csv', ee_forces, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_ee_torques_contact_btw_probe_and_body.csv', ee_torques, delimiter=",")
-            #np.savetxt('data/'+experiment_name+str(episode)+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
+            np.savetxt('data/'+experiment_name+str(episode)+'_contact_contact_btw_probe_and_body.csv', contact, delimiter=",")
             np.savetxt('data/'+experiment_name+str(episode)+'_gripper_pos_contact_btw_probe_and_body.csv', gripper_pos, delimiter=",")
 
         # close window
