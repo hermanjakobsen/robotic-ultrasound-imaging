@@ -1,12 +1,12 @@
 <mujoco model="box">
   <worldbody>
     <body>
-      <body name="collision">
-        <geom name="box" pos="-0.25 0 1" type="box" mass="0.5" size="0.05 0.05 0.05" group="1"/>
+      <body name="object">
+        <geom name="box_geom" pos="-0.25 0 1" type="box" mass="0.5" size="0.05 0.05 0.05" group="0"/>
       </body>
-      <body name="visual">
-        <geom pos="0 0 0" type="box"  group="1" mass="0.0001"/>
-      </body>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.05" name="bottom_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 0.05" name="top_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.05 0.05 0" name="horizontal_radius_site"/>
     </body>
   </worldbody>
 </mujoco>
