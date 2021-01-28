@@ -11,8 +11,8 @@
             <skin material="skin-material" texcoord="true"/>
           </composite>
         </body>
-        <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.07" name="bottom_site"/>
-        <site rgba="0 0 0 0" size="0.005" pos="0 0 0.07" name="top_site"/>
+        <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.05" name="bottom_site"/>
+        <site rgba="0 0 0 0" size="0.005" pos="0 0 0.05" name="top_site"/>
         <site rgba="0 0 0 0" size="0.005" pos="0.2 0.2 0" name="horizontal_radius_site"/>
     </body>
   </worldbody>
