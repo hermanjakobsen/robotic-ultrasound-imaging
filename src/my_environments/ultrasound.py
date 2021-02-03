@@ -134,7 +134,8 @@ class Ultrasound(SingleArmEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
-        self.contact_force_threshold = 60
+        self.contact_force_upper_threshold = 60
+        self.contact_force_lower_threshold = 40
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -166,6 +167,7 @@ class Ultrasound(SingleArmEnv):
             camera_depths=camera_depths,
         )
 
+
     def reward(self, action=None):
         """
         Reward function for the task.
@@ -178,27 +180,37 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0. 
 
+        # ADD exerted force penalties should only be given if contact with torso
+
+        exerted_force = np.linalg.norm(self.robots[0].ee_force)
+        dist_to_torso_center_xy_plane = np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2])
+
         # success reward (probe touching torso)
         if self._check_success():
             reward += 2.25
 
         # reaching reward
-        dist_to_torso_center = np.linalg.norm(self._gripper_to_target(self.robots[0].gripper, self.torso))
-        reward += (1 - np.tanh(10.0 * dist_to_torso_center))
+        reward += 2 * (1 - np.tanh(10.0 * dist_to_torso_center_xy_plane))
 
-        # excessive force penalty
-        if np.linalg.norm(self.robots[0].ee_force) >  self.contact_force_threshold:
+        # insufficient force penalty when in contact with upper part torso (i.e. performing scan)
+        # should maybe implement more "guiding"
+        if exerted_force < self.contact_force_lower_threshold and self._check_probe_contact_with_upper_part_torso():
+            reward -= 1.5
+
+        # excessive force penalty when in contact with torso
+        if exerted_force >  self.contact_force_upper_threshold and self._check_probe_contact_with_torso():
             reward -= 5
 
-        # orientation penalty
+        # probe orientation penalty
         ori_deviation = np.minimum(np.linalg.norm(self.ee_inital_orientation - self._eef_xquat), np.linalg.norm(self.ee_inital_orientation + self._eef_xquat))
         reward -= np.tanh(5 * ori_deviation)
 
-        # penalty for touching table
-        if self.check_contact(self.robots[0].gripper, "table_collision"):
-            reward -= 10
+        # touching table penalty (will also end the episode)
+        if self._check_probe_contact_with_table():
+            return -100
 
         return reward
+
 
     def _load_model(self):
         """
@@ -231,8 +243,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[-0.10, 0.10],
-                y_range=[-0.10, 0.10],
+                x_range=[0, 0],#[-0.10, 0.10],
+                y_range=[0, 0],#[-0.10, 0.10],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -247,6 +259,7 @@ class Ultrasound(SingleArmEnv):
             mujoco_objects=[self.torso]
         )
 
+
     def _setup_references(self):
         """
         Sets up references to important components. A reference is typically an
@@ -255,8 +268,9 @@ class Ultrasound(SingleArmEnv):
         """
         super()._setup_references()
 
-        # Additional object references from this env
+        # additional object references from this env
         self.torso_body_id = self.sim.model.body_name2id(self.torso.root_body)
+
 
     def _setup_observables(self):
         """
@@ -270,8 +284,8 @@ class Ultrasound(SingleArmEnv):
         modality = "probe"
 
         @sensor(modality=modality)
-        def probe_contact_with_torso(obs_cache):
-            return self._check_probe_contact_with_torso()
+        def probe_contact_with_upper_part_torso(obs_cache):
+            return self._check_probe_contact_with_upper_part_torso()
 
         @sensor(modality=modality)
         def probe_force(obs_cache):
@@ -281,19 +295,22 @@ class Ultrasound(SingleArmEnv):
         def probe_torque(obs_cache):
             return self.robots[0].ee_torque
 
+        sensors = [probe_contact_with_upper_part_torso, probe_force, probe_torque]
+        
         # low-level object information
         if self.use_object_obs:
             modality = "object"
 
             @sensor(modality=modality)
             def torso_pos(obs_cache):
-                return np.array(self.sim.data.body_xpos[self.torso_body_id])
+                return self._torso_xpos
 
             @sensor(modality=modality)
             def torso_quat(obs_cache):
                 return convert_quat(np.array(self.sim.data.body_xquat[self.torso_body_id]), to="xyzw")
 
-        sensors = [probe_contact_with_torso, probe_force, probe_torque, torso_pos, torso_quat]
+            sensors += [torso_pos, torso_quat]
+
         names = [s.__name__ for s in sensors]
 
         # Create observables
@@ -305,6 +322,7 @@ class Ultrasound(SingleArmEnv):
             )
 
         return observables
+
 
     def _reset_internal(self):
         """
@@ -329,6 +347,7 @@ class Ultrasound(SingleArmEnv):
         # probe resets - orientation at initial state
         self.ee_inital_orientation = self._eef_xquat    # (x, y, z, w) quaternion
 
+
     def _post_action(self, action):
         """
         In addition to super method, add additional info if requested
@@ -347,7 +366,10 @@ class Ultrasound(SingleArmEnv):
             self.ee_force_bias = self.robots[0].ee_force
             self.ee_torque_bias = self.robots[0].ee_torque
 
+        done = done or self._check_terminated()
+
         return reward, done, info
+
 
     def visualize(self, vis_settings):
         """
@@ -360,9 +382,21 @@ class Ultrasound(SingleArmEnv):
         # Run superclass method first
         super().visualize(vis_settings=vis_settings)
 
+
     def _check_success(self):
 
-        return self._check_probe_contact_with_torso()
+        return self._check_probe_contact_with_upper_part_torso()
+
+
+    def _check_probe_contact_with_upper_part_torso(self):
+        """
+        Check if the probe is in contact with the upper/top part of torso. Touching the torso on the sides should not count as contact.
+        """     
+        # check for contact only if probe is in contact with upper part and close to torso center
+        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.12:
+            return self._check_probe_contact_with_torso()
+
+        return False
 
 
     def _check_probe_contact_with_torso(self):
@@ -370,12 +404,54 @@ class Ultrasound(SingleArmEnv):
         Check if the probe is in contact with the torso.
 
         NOTE This method utilizes the autogenerated geom names for MuJoCo-native composite objects
-        """
+        """     
+        # check contact with torso geoms based on autogenerated names
         gripper_contacts = self.get_contacts(self.robots[0].gripper)
-            
         for contact in gripper_contacts:
             match = re.search("[G]\d+[_]\d+[_]\d+$", contact)
             if match != None:
                 return True
-        
+    
         return False
+
+    
+    def _check_probe_contact_with_table(self):
+        """
+        Check if the probe is in contact with the tabletop.
+        """
+        return self.check_contact(self.robots[0].gripper, "table_collision")
+
+
+    def _check_terminated(self):
+        """
+        Check if the task has completed one way or another. The following conditions lead to termination:
+            - Collision with table
+            - Joint Limit reached
+        Returns:
+            bool: True if episode is terminated
+        """
+
+        terminated = False
+
+        # Prematurely terminate if contacting the table with the probe
+        if self._check_probe_contact_with_table():
+            print(40 * '-' + " COLLIDED WITH TABLE " + 40 * '-')
+            terminated = True
+
+        # Prematurely terminate if reaching joint limits
+        if self.robots[0].check_q_limits():
+            print(40 * '-' + " JOINT LIMIT " + 40 * '-')
+            terminated = True
+
+        return terminated
+
+
+    @property
+    def _torso_xpos(self):
+        """
+        Grabs torso center position
+
+        Returns:
+            np.array: torso(x,y,z)
+        """
+        return np.array(self.sim.data.get_body_xpos(self.torso.root_body))
