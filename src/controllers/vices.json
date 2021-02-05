@@ -7,12 +7,12 @@
   "kp": 150,
   "damping_ratio": 1,
   "impedance_mode": "variable",
-  "kp_limits": [0, 300],
-  "damping_ratio_limits": [0, 10],
+  "kp_limits": [10, 300],
+  "damping_ratio_limits": [0, 2],
   "position_limits": null,
   "orientation_limits": null,
   "uncouple_pos_ori": true,
   "control_delta": true,
-  "interpolation": null,
+  "interpolation": "linear",
   "ramp_ratio": 0.2
 }

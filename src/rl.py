@@ -40,32 +40,32 @@ if __name__ == '__main__':
     register_env(FetchPush)
 
     # Environment specifications
-    env_id = 'FetchPush'
+    env_id = 'Ultrasound'
     options = {}
     options['robots'] = 'UR5e'
-    options['controller_configs'] = load_controller_config(default_controller='OSC_POSE')
+    options['controller_configs'] = load_controller_config(custom_fpath='controllers/vices.json')
     options['gripper_types'] = 'UltrasoundProbeGripper'
     options['has_renderer'] = False
     options['has_offscreen_renderer'] = False
     options['use_camera_obs'] = False
     options['use_object_obs'] = True
-    options['control_freq'] = 50
+    options['control_freq'] = 100
     options['render_camera'] = None
-    options['horizon'] = 1000
+    options['horizon'] = 400
     options['reward_shaping'] = True
 
     # Settings
     training = False
-    training_timesteps = 2e6
-    num_cpu = 4
-    tb_log_folder = 'ppo_fetchpush_tensorboard'
-    tb_log_name = '2M_OSC_POSE'
+    training_timesteps = 4e6
+    num_cpu = 6
+    tb_log_folder = 'ppo_ultrasound_tensorboard'
+    tb_log_name = '4M_contact_establishment'
     load_model_for_training_path = None
-    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_6M_OSC_POSE.pkl'
+    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_2M_OSC_POSE.pkl'
     save_model_folder = 'trained_models'
-    save_model_filename = '2M_OSC_POSE'
+    save_model_filename = '4M_contact_establishment'
     load_model_folder = 'trained_models'
-    load_model_filename = '2M_OSC_POSE'
+    load_model_filename = '4M_contact_establishment'
 
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -76,12 +76,15 @@ if __name__ == '__main__':
         env = SubprocVecEnv([make_training_env(env_id, options, i) for i in range(num_cpu)])
         env = VecNormalize(env)
 
+        # Check if should continue training on a model
         if isinstance(load_model_for_training_path, str):
             env = VecNormalize.load(load_vecnormalize_for_training_path, env)
             model = PPO.load(load_model_for_training_path, env=env)
         else:
             model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=tb_log_folder)
-        
+
+
+        # Evaluation during training (save best model)
         eval_env_func = make_training_env(env_id, options, rank=num_cpu)
         eval_env = DummyVecEnv([eval_env_func])
         eval_env = VecNormalize(eval_env)
@@ -90,8 +93,10 @@ if __name__ == '__main__':
                              log_path='./logs_best_model/',
                              deterministic=True, render=False, n_eval_episodes=10)
 
+        # Training
         model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=eval_callback)
 
+        # Save trained model
         model.save(save_model_path)
         env.save(save_vecnormalize_path)
 
@@ -109,15 +114,14 @@ if __name__ == '__main__':
 
         obs = env.reset()
         eprew = 0
-
         while True:
             action, _states = model.predict(obs, deterministic=True)
             #action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
+            #print(action)
             print(f'reward: {reward}')
             eprew += reward
             env_gym.render()
-
             if done:
                 print(f'eprew: {eprew}')
                 obs = env.reset()
