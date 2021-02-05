@@ -1,0 +1,17 @@
+<mujoco model="hospital_bed">
+  <asset>
+    <material name="white" rgba="1 1 1 1"/>
+    <mesh name="bed_mesh" file="meshes/hospital_bed_frame.stl" />
+    <mesh name="bed_mesh_visual" file="meshes/hospital_bed_frame_vis.stl" />
+  </asset>
+  <worldbody>
+    <body>
+      <body name="object" pos="2 -1 1" quat="0.5 0.5 -0.5 -0.5">
+        <geom name="bed_col" type="mesh" mesh="bed_mesh" mass="50" material="white" group="0"/>
+      </body>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.05" name="bottom_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0 0 0.05" name="top_site"/>
+      <site rgba="0 0 0 0" size="0.005" pos="0.05 0.05 0" name="horizontal_radius_site"/>
+    </body>
+  </worldbody>
+</mujoco>
