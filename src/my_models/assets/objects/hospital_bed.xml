@@ -2,7 +2,7 @@
   <asset>
     <material name="white" rgba="1 1 1 1"/>
     <mesh name="bed_mesh" file="meshes/hospital_bed_frame.stl" />
-    <mesh name="bed_mesh_vis" file="meshes/hospital_bed_frame_vis.stl" />
+    <mesh name="bed_mesh_visual" file="meshes/hospital_bed_frame_vis.stl" />
   </asset>
   <worldbody>
     <body>
