@@ -235,11 +235,11 @@ class Ultrasound(SingleArmEnv):
         # Create placement initializer
         if self.placement_initializer is not None:
             self.placement_initializer.reset()
-            #self.placement_initializer.add_objects(self.torso)
+            self.placement_initializer.add_objects(self.torso)
         else:
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
-                mujoco_objects=[],
+                mujoco_objects=[self.torso],
                 x_range=[-0.12, 0.12],
                 y_range=[-0.12, 0.12],
                 rotation=None,
