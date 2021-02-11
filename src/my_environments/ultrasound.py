@@ -136,6 +136,7 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
         self.contact_force_upper_threshold = 60
         self.contact_force_lower_threshold = 40
+        self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -181,11 +182,11 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0. 
 
-        exerted_force = np.linalg.norm(self.robots[0].ee_force)
+        total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
         dist_to_torso_center = np.linalg.norm(self._eef_xpos - self._torso_xpos)
 
-        # success reward (probe touching torso)
-        if self._check_success():
+        # reward for probe touching torso
+        if self._check_probe_contact_with_upper_part_torso():
             reward += 2.25
 
         # reaching reward
@@ -193,16 +194,16 @@ class Ultrasound(SingleArmEnv):
 
         # insufficient force penalty when in contact with upper part torso (i.e. performing scan)
         # should maybe implement more "guiding"
-        if exerted_force < self.contact_force_lower_threshold and self._check_probe_contact_with_upper_part_torso():
-            reward -= 1.5
+        #if exerted_force < self.contact_force_lower_threshold and self._check_probe_contact_with_upper_part_torso():
+        #    reward -= 1.5
 
         # excessive force penalty when in contact with torso
-        if exerted_force >  self.contact_force_upper_threshold and self._check_probe_contact_with_torso():
-            reward -= 5
+        #if exerted_force >  self.contact_force_upper_threshold and self._check_probe_contact_with_torso():
+        #    reward -= 5
 
         # probe orientation penalty
         ori_deviation = np.minimum(np.linalg.norm(self.ee_inital_orientation - self._eef_xquat), np.linalg.norm(self.ee_inital_orientation + self._eef_xquat))
-        reward -= np.tanh(5 * ori_deviation)
+        reward -= np.tanh(4 * ori_deviation)
 
         # touching table penalty (will also end the episode)
         if self._check_probe_contact_with_table():
@@ -345,6 +346,9 @@ class Ultrasound(SingleArmEnv):
         # probe resets - orientation at initial state
         self.ee_inital_orientation = self._eef_xquat    # (x, y, z, w) quaternion
 
+        # initialize timer
+        self.timer = 0
+
 
     def _post_action(self, action):
         """
@@ -384,13 +388,17 @@ class Ultrasound(SingleArmEnv):
 
     def _check_success(self):
         """
-        Check if the probe is in contact with the upper/top part of torso.
+        Check if the probe is in contact with the upper/top part of torso for a given amount of time.
 
         Returns:
-            bool: True if probe touched upper part of torso. 
-        """     
-
-        return self._check_probe_contact_with_upper_part_torso()
+            bool: True if probe touched upper part of torso for a given amount of time. 
+        """ 
+        if self._check_probe_contact_with_torso():
+            self.timer += 1
+            return self.timer >= self.timer_threshold
+            
+        self.timer = 0
+        return False
 
 
     def _check_probe_contact_with_upper_part_torso(self):
@@ -457,6 +465,11 @@ class Ultrasound(SingleArmEnv):
         if self.robots[0].check_q_limits():
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
             terminated = True
+
+        # Prematurely terminate if task is success
+       # if self._check_success():
+       #     print(40 * '+' + " TASK SUCCESS " + 40 * '+')
+        #    terminated = True
 
         return terminated
 
