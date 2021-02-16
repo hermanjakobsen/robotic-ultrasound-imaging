@@ -13,61 +13,6 @@ from mujoco_py import MjSim, MjViewer
 from my_models.objects import SoftTorsoObject, BoxObject
 from helper import set_initial_robot_state, transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params
 
-
-def controller_demo(experiment_name, save_data=False):
-    
-    env = suite.make(
-            'Ultrasound',
-            robots='UR5e',
-            controller_configs=None,
-            gripper_types=None,
-            has_renderer = True,
-            has_offscreen_renderer= False,
-            use_camera_obs=False,
-            use_object_obs=False,
-            control_freq = 50,
-            render_camera = 'sideview',
-            horizon=1600    
-        )
-
-    # Reset the env
-    env.reset()
-
-    sim_time = env.horizon
-
-    robot = env.robots[0]
-    joint_pos_obs = np.empty(shape=(sim_time, robot.dof))
-    ref_values = np.array([np.pi/2, 3*np.pi/2, -np.pi/4])
-
-    goal_joint_pos = [ref_values[0], 0, 0, 0, 0, 0]
-    kp = 2
-    kd = 1.2
-
-    for t in range(sim_time):
-        if env.done:
-            break
-        env.render()
-        
-        action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
-
-        if t > 1200:
-            action = relative2absolute_joint_pos_commands([0, ref_values[2], 0, 0, 0, 0], robot, kp, kd)
-        elif t > 800:
-            action = relative2absolute_joint_pos_commands([0, 0, 0, 0, 0, 0], robot, kp, kd)
-        elif t > 350:
-            action = relative2absolute_joint_pos_commands([ref_values[1], 0, 0, 0, 0, 0], robot, kp, kd)
-
-        observation, reward, done, info = env.step(action)
-        joint_pos_obs[t] = np.arccos(observation['robot0_joint_pos_cos'])
-
-    # close window
-    env.close() 
-
-    if save_data:
-        np.savetxt('data/'+experiment_name+'_joint_pos_controller_test.csv', joint_pos_obs, delimiter=",")
-        np.savetxt('data/'+experiment_name+'_ref_values_controller_test.csv', ref_values, delimiter=",")
-
-
 def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
     
     for episode in range(episodes):
@@ -111,13 +56,7 @@ def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
                 break
             env.render()
             
-            action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
-
-            if t > 400:
-                goal_joint_pos = [0, -np.pi/4, np.pi, -np.pi/2, -np.pi/2, 0]
-                goal_joint_pos = goal_joint_pos + [0] if robot.gripper.dof > 0 else goal_joint_pos
-
-                action = relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd)
+            action = [0, 0, 0, 0, 0, 0] # placeholder
 
             observation, reward, done, info = env.step(action)
 
