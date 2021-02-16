@@ -6,6 +6,8 @@ from mujoco_py import MjSimState, MjSim, MjViewer
 
 from robosuite.models.grippers import GRIPPER_MAPPING
 
+def register_gripper(gripper_class):
+    GRIPPER_MAPPING[gripper_class.__name__] = gripper_class
 
 def set_initial_robot_state(sim, robot):
     ''' Used for setting initial state when simulating with mujoco-py directly '''
@@ -22,27 +24,6 @@ def set_initial_robot_state(sim, robot):
     new_state = MjSimState(old_state.time, init_model_qpos, init_model_qvel, old_state.act, old_state.udd_state)
     sim.set_state(new_state)
     sim.forward()
-
-
-def register_gripper(gripper_class):
-    GRIPPER_MAPPING[gripper_class.__name__] = gripper_class
-
-
-def relative2absolute_joint_pos_commands(goal_joint_pos, robot, kp, kd):
-    assert len(goal_joint_pos) == robot.action_dim 
-
-    action = [0 for _ in range(robot.action_dim)]
-    curr_joint_pos = robot._joint_positions
-    curr_joint_vel = robot._joint_velocities
-
-    for i in range(robot.action_dim):
-        if i > len(curr_joint_pos) - 1:
-            action[i] = goal_joint_pos[i]
-        else:    
-            action[i] = (goal_joint_pos[i] - curr_joint_pos[i]) * kp - curr_joint_vel[i] * kd
-    
-    return action
-
 
 def transform_ee_frame_axes(measurement):
     # Want z-axis pointing out of probe
@@ -69,13 +50,6 @@ def create_mjsim_and_viewer(env):
     viewer = MjViewer(sim)
 
     return sim, viewer
-
-
-def capture_image_frame(viewer, folderpath):
-    # better solution would be to use off-screen renderer.  
-    img = viewer._read_pixels_as_in_window()
-    plt.imsave(folderpath + 'frame'+ '{0:06}'.format(viewer._image_idx) + '.png', img)
-    viewer._image_idx += 1
 
 
 def plot_joint_pos(joint_pos_filepath):
