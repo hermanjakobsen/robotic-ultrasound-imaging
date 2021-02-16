@@ -1,5 +1,5 @@
 # Installation 
-The framework has been tested to run with Ubuntu18.04 and python3.8. 
+The framework has been tested to run with Ubuntu20.04 and python3.8. 
 ## MuJoCo 2.0
 Download [MuJoCo 2.0](https://www.roboti.us/index.html) and unzip its contents into `~/.mujoco/mujoco200`.  A license key can be obtained from [here](https://www.roboti.us/license.html). Copy your MuJoCo license key into `~/.mujoco/mjkey.txt`. The finalized folder structure should look like
 
@@ -16,7 +16,11 @@ Download [MuJoCo 2.0](https://www.roboti.us/index.html) and unzip its contents i
 ```
 Lastly, add the following line to the bottom of `~/.bashrc`
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/hermankj/.mujoco/mujoco200/bin
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<path_to_home>/.mujoco/mujoco200/bin
+```
+Note that if you are going to use a GPU to train RL agents, the `patchelf` package is needed for installing `mujoco-py`
+```
+sudo apt-get install -y patchelf
 ```
 ## Using pip
 To avoid package conflictions, it is smart to create a virtual environment. Run the following command to set up a virtual environment
@@ -31,12 +35,9 @@ source venv/bin/activate
 ```
 The required packages can then be installed with 
 ```
+pip3 install wheel  
 pip3 install -r requirements.txt
 ```
 NOTE: The `mujoco-py` package may require additional system dependencies. The full installation process for this package can be found [here](https://github.com/openai/mujoco-py).
 
-# Known issues
-
-## Offscreen rendering
-Problems with the GLEW library can occur if you try to benefit from offscreen rendering while using Ubuntu20.04 with a dedicated GPU. This is a known problem with the `mujoco-py` package, and a discussion of solutions can be found [here](https://github.com/openai/mujoco-py/issues/408).
  
