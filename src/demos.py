@@ -11,9 +11,7 @@ from robosuite import load_controller_config
 from mujoco_py import MjSim, MjViewer
 
 from my_models.objects import SoftTorsoObject, BoxObject
-from helper import relative2absolute_joint_pos_commands, set_initial_robot_state, \
-    transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params, \
-    capture_image_frame
+from helper import set_initial_robot_state, transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params
 
 
 def controller_demo(experiment_name, save_data=False):
