@@ -1,0 +1,55 @@
+seed: 0
+training: False    # Whether to train a new model or not
+
+# Settings for stable-baselines RL algorithm
+sb_config:
+  total_timesteps: 5.0e+6
+  num_cpu: 6
+
+# Specify environment
+robosuite:
+  env_id: "Ultrasound"
+  robots: "UR5e"
+  use_camera_obs: False
+  use_object_obs: True
+  has_renderer: False
+  has_offscreen_renderer: False
+  render_camera: null
+  control_freq: 100
+  horizon: 400
+  camera_names: "agentview"
+  camera_heights: 48
+  camera_widths: 48
+  camera_depths: false
+  controller_configs:
+    type: "OSC_POSE"
+    input_max: 1
+    input_min: -1
+    output_max: [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]
+    output_min: [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5]
+    kp: 150
+    damping_ratio: 1
+    impedance_mode: "variable"
+    kp_limits: [10, 300]
+    damping_ratio_limits: [0, 2]
+    position_limits: null
+    orientation_limits: null
+    uncouple_pos_ori: True
+    control_delta: True
+    interpolation: "linear"
+    ramp_ratio: 0.2
+
+# Settings used for file handling and logging (save/load destination etc)
+file_handling:
+  # Logging with Tensorboard and saving trained models
+  tb_log_folder: "ppo_ultrasound_tensorboard"
+  tb_log_name: "test"
+  save_model_folder: "trained_models"
+  save_model_filename: "test"
+  # Loading of trained models
+  load_model_folder: "trained_models"
+  load_model_filename: "5M_contact_establishment_orientation"
+  # Continue training on trained model
+  load_model_for_training_path: null
+  load_vecnormalize_for_training_path: null 
+

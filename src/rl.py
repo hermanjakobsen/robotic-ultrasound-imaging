@@ -1,5 +1,6 @@
 import robosuite as suite
 import os
+import yaml
 
 from robosuite.wrappers import GymWrapper
 from robosuite import load_controller_config
@@ -39,41 +40,42 @@ def make_training_env(env_id, options, rank, seed=0):
 if __name__ == '__main__':
     register_env(FetchPush)
 
+    with open("rl_config.yaml", 'r') as stream:
+        config = yaml.safe_load(stream)
+
     # Environment specifications
-    env_id = 'Ultrasound'
-    options = {}
-    options['robots'] = 'UR5e'
-    options['controller_configs'] = load_controller_config(custom_fpath='controllers/vices.json')
-    options['gripper_types'] = 'UltrasoundProbeGripper'
-    options['has_renderer'] = False
-    options['has_offscreen_renderer'] = False
-    options['use_camera_obs'] = False
-    options['use_object_obs'] = True
-    options['control_freq'] = 100
-    options['render_camera'] = None
-    options['horizon'] = 400
-    options['reward_shaping'] = True
+    env_options = config["robosuite"]
+    env_id = env_options.pop("env_id")
 
-    # Settings
-    training = False
-    training_timesteps = 4e6
-    num_cpu = 6
-    tb_log_folder = 'ppo_ultrasound_tensorboard'
-    tb_log_name = '4M_contact_establishment'
-    load_model_for_training_path = None
-    load_vecnormalize_for_training_path = 'trained_models/vec_normalize_2M_OSC_POSE.pkl'
-    save_model_folder = 'trained_models'
-    save_model_filename = '4M_contact_establishment'
-    load_model_folder = 'trained_models'
-    load_model_filename = '4M_contact_establishment'
+    # Settings for stable-baselines RL algorithm
+    training = config["training"]
+    seed = config["seed"]
+    sb_config = config["sb_config"]
+    training_timesteps = sb_config["total_timesteps"]
+    num_cpu = sb_config["num_cpu"]
 
+    # Settings used for file handling and logging (save/load destination etc)
+    file_handling = config["file_handling"]
+
+    tb_log_folder = file_handling["tb_log_folder"]
+    tb_log_name = file_handling["tb_log_name"]
+
+    save_model_folder = file_handling["save_model_folder"]
+    save_model_filename = file_handling["save_model_filename"]
+    load_model_folder = file_handling["load_model_folder"]
+    load_model_filename = file_handling["load_model_filename"]
+
+    load_model_for_training_path = file_handling["load_model_for_training_path"]
+    load_vecnormalize_for_training_path = file_handling["load_vecnormalize_for_training_path"]
+
+    # Join paths
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
     load_model_path = os.path.join(load_model_folder, load_model_filename)
     load_vecnormalize_path = os.path.join(load_model_folder, 'vec_normalize_' + load_model_filename + '.pkl')
 
     if training:
-        env = SubprocVecEnv([make_training_env(env_id, options, i) for i in range(num_cpu)])
+        env = SubprocVecEnv([make_training_env(env_id, env_options, i, seed) for i in range(num_cpu)])
         env = VecNormalize(env)
 
         # Check if should continue training on a model
@@ -85,7 +87,7 @@ if __name__ == '__main__':
 
 
         # Evaluation during training (save best model)
-        eval_env_func = make_training_env(env_id, options, rank=num_cpu)
+        eval_env_func = make_training_env(env_id, env_options, num_cpu, seed)
         eval_env = DummyVecEnv([eval_env_func])
         eval_env = VecNormalize(eval_env)
 
@@ -101,9 +103,9 @@ if __name__ == '__main__':
         env.save(save_vecnormalize_path)
 
     else:
-        options['has_renderer'] = True
+        env_options['has_renderer'] = True
         register_gripper(UltrasoundProbeGripper)
-        env_gym = GymWrapper(suite.make(env_id, **options))
+        env_gym = GymWrapper(suite.make(env_id, **env_options))
         env = DummyVecEnv([lambda : env_gym])
 
         model = PPO.load(load_model_path)
