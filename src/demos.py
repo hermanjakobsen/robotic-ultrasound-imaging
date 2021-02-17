@@ -11,7 +11,8 @@ from robosuite import load_controller_config
 from mujoco_py import MjSim, MjViewer
 
 from my_models.objects import SoftTorsoObject, BoxObject
-from helper import set_initial_robot_state, transform_ee_frame_axes, create_mjsim_and_viewer, print_world_xml_and_soft_torso_params
+from utils.common import transform_ee_frame_axes, create_mjsim_and_viewer
+from utils.plot import print_world_xml_and_soft_torso_params
 
 def contact_btw_probe_and_body_demo(episodes, experiment_name, save_data=False):
     
