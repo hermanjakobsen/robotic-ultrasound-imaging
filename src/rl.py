@@ -17,7 +17,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 
 from my_models.grippers import UltrasoundProbeGripper
 from my_environments import Ultrasound, FetchPush
-from helper import register_gripper
+from utils.common import register_gripper
 
 def make_training_env(env_id, options, rank, seed=0):
     """
