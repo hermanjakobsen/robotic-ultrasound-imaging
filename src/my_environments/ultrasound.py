@@ -14,6 +14,7 @@ from robosuite.utils.observables import Observable, sensor
 from my_models.objects import SoftTorsoObject, BoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
+from utils.quaternion import distance_quat
 
 
 class Ultrasound(SingleArmEnv):
@@ -136,6 +137,7 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
         self.contact_force_upper_threshold = 60
         self.contact_force_lower_threshold = 40
+        self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -181,28 +183,21 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0. 
 
-        exerted_force = np.linalg.norm(self.robots[0].ee_force)
+        total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
         dist_to_torso_center = np.linalg.norm(self._eef_xpos - self._torso_xpos)
+        ee_orientation = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
 
-        # success reward (probe touching torso)
-        if self._check_success():
+
+        # reward for probe touching torso
+        if self._check_probe_contact_with_upper_part_torso():
             reward += 2.25
 
         # reaching reward
         reward += 1.5 * (1 - np.tanh(10.0 * dist_to_torso_center))
 
-        # insufficient force penalty when in contact with upper part torso (i.e. performing scan)
-        # should maybe implement more "guiding"
-        if exerted_force < self.contact_force_lower_threshold and self._check_probe_contact_with_upper_part_torso():
-            reward -= 1.5
-
-        # excessive force penalty when in contact with torso
-        if exerted_force >  self.contact_force_upper_threshold and self._check_probe_contact_with_torso():
-            reward -= 5
-
         # probe orientation penalty
-        ori_deviation = np.minimum(np.linalg.norm(self.ee_inital_orientation - self._eef_xquat), np.linalg.norm(self.ee_inital_orientation + self._eef_xquat))
-        reward -= np.tanh(5 * ori_deviation)
+        ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
+        reward -= np.tanh(ori_deviation)
 
         # touching table penalty (will also end the episode)
         if self._check_probe_contact_with_table():
@@ -343,7 +338,10 @@ class Ultrasound(SingleArmEnv):
         self.ee_torque_bias = np.zeros(3)
 
         # probe resets - orientation at initial state
-        self.ee_inital_orientation = self._eef_xquat    # (x, y, z, w) quaternion
+        self.ee_inital_orientation = convert_quat(self._eef_xquat, to="wxyz")    # (w, x, y, z) quaternion
+
+        # initialize timer
+        self.timer = 0
 
 
     def _post_action(self, action):
@@ -384,13 +382,17 @@ class Ultrasound(SingleArmEnv):
 
     def _check_success(self):
         """
-        Check if the probe is in contact with the upper/top part of torso.
+        Check if the probe is in contact with the upper/top part of torso for a given amount of time.
 
         Returns:
-            bool: True if probe touched upper part of torso. 
-        """     
-
-        return self._check_probe_contact_with_upper_part_torso()
+            bool: True if probe touched upper part of torso for a given amount of time. 
+        """ 
+        if self._check_probe_contact_with_torso():
+            self.timer += 1
+            return self.timer >= self.timer_threshold
+            
+        self.timer = 0
+        return False
 
 
     def _check_probe_contact_with_upper_part_torso(self):
@@ -456,7 +458,12 @@ class Ultrasound(SingleArmEnv):
         # Prematurely terminate if reaching joint limits
         if self.robots[0].check_q_limits():
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
-            terminated = True
+            #terminated = True
+
+        # Prematurely terminate if task is success
+       # if self._check_success():
+       #     print(40 * '+' + " TASK SUCCESS " + 40 * '+')
+        #    terminated = True
 
         return terminated
 

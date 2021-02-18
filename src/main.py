@@ -14,16 +14,44 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from my_environments import Ultrasound, FetchPush
 from my_models.grippers import UltrasoundProbeGripper
-from helper import register_gripper, plot_joint_pos, plot_forces_and_contact, plot_gripper_position
-from demos import controller_demo, \
-    contact_btw_probe_and_body_demo, \
-    standard_mujoco_py_demo, \
-    change_parameters_of_soft_body_demo
+from utils.common import register_gripper
+from utils.quaternion import q_log
+from demos import contact_btw_probe_and_body_demo, standard_mujoco_py_demo, change_parameters_of_soft_body_demo
 
+import yaml
 
 register_env(Ultrasound)
 register_env(FetchPush)
 register_gripper(UltrasoundProbeGripper)
+
+
+# USED FOR TESTING
+def get_policy_action(obs):
+    # a trained policy could be used here, but we choose a random action
+    low, high = env.action_spec
+    return np.random.uniform(low, high)
+
+with open("rl_config.yaml", 'r') as stream:
+    config = yaml.safe_load(stream)
+
+# Environment specifications
+env_options = config["robosuite"]
+env_id = env_options.pop("env_id")
+
+env = suite.make(env_id, **env_options)
+
+# reset the environment to prepare for a rollout
+obs = env.reset()
+
+done = False
+ret = 0.
+for t in range(env.horizon):
+    action = [0, 0, 0, -1, 0.5 ,0.2]         # use observation to decide on an action
+    obs, reward, done, _ = env.step(action) # play action
+    #print(obs)
+    ret += reward
+    env.render()
+print("rollout completed with return {}".format(ret))
 
 ## Simulations
 #controller_demo('UR5e', save_data=False)
