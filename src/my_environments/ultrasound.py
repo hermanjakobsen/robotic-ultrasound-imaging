@@ -14,7 +14,7 @@ from robosuite.utils.observables import Observable, sensor
 from my_models.objects import SoftTorsoObject, BoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-from utils.quaternion import q_dist
+from utils.quaternion import distance_quat
 
 
 class Ultrasound(SingleArmEnv):
@@ -196,7 +196,7 @@ class Ultrasound(SingleArmEnv):
         reward += 1.5 * (1 - np.tanh(10.0 * dist_to_torso_center))
 
         # probe orientation penalty
-        ori_deviation = q_dist(self.ee_inital_orientation, ee_orientation)
+        ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
         reward -= np.tanh(ori_deviation)
 
         # touching table penalty (will also end the episode)

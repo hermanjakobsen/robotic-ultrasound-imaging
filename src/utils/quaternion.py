@@ -11,8 +11,7 @@ def q_log(q):
     Returns:
         np.array: quaternion logarithm
     """
-
-    v = q[0] if q[0] < 1 else 2 - q[0]     # Quick fix to deal with somewhat unstable quaternion measurements
+    v = np.clip(q[0], -1, 1)    # Quick fix to deal with somewhat unstable quaternion measurements/normalizations (i.e. v > 1 and v < -1)
     u = q[1:]
     u_norm = np.linalg.norm(u)
     if u_norm == 0:
@@ -21,8 +20,7 @@ def q_log(q):
     return np.arccos(v) * u / u_norm
     
 
-
-def q_dist(q1, q2):
+def distance_quat(q1, q2):
     """
     Calculates distance metric between two quaternions as defined in eq. (20) in https://ieeexplore.ieee.org/document/6907291
 
