@@ -193,7 +193,7 @@ class Ultrasound(SingleArmEnv):
             reward += 2.25
 
         # reaching reward
-        reward += 1.5 * (1 - np.tanh(10.0 * dist_to_torso_center))
+        reward += 1.5 * (1 - np.tanh(5 * dist_to_torso_center))
 
         # probe orientation penalty
         ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
@@ -202,7 +202,6 @@ class Ultrasound(SingleArmEnv):
         # touching table penalty (will also end the episode)
         if self._check_probe_contact_with_table():
             return -100
-
 
         return reward
 
@@ -225,7 +224,6 @@ class Ultrasound(SingleArmEnv):
 
         # initialize objects of interest
         self.torso = SoftTorsoObject(name="torso")
-        #self.bed = HospitalBedObject(name="bed")
 
         # Create placement initializer
         if self.placement_initializer is not None:
@@ -467,6 +465,41 @@ class Ultrasound(SingleArmEnv):
 
         return terminated
 
+    
+    def _get_examination_trajectory(self, n_pts):
+        """
+        Calculates the examination trajectory along the torso. The trajectory is calculated as a line 
+        between the start and end position in the xy-plane.
+
+        Args:
+            n_pts (int): number of points along the trajectory
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        assert n_pts > 1, "The number of points must be atleast 2"
+
+        trajectory = np.zeros((n_pts, 3))
+        start_pos = self._examination_start_xpos
+        end_pos = self._examination_end_xpos
+        
+        dir_vec = np.array([
+            end_pos[0] - start_pos[0], 
+            end_pos[1] - start_pos[1], 
+            end_pos[2] - start_pos[2]
+            ])
+
+        for i in range(n_pts):
+            t = 1 / (n_pts-1) * i
+            traj_pt = np.array([
+                start_pos[0] + dir_vec[0] * t, 
+                start_pos[1] + dir_vec[1] * t,
+                start_pos[2] + dir_vec[2] * t
+                ])
+            trajectory[i] = traj_pt
+
+        return trajectory
+
 
     @property
     def _torso_xpos(self):
@@ -476,4 +509,47 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        return np.array(self.sim.data.get_body_xpos(self.torso.root_body))
+        return np.array(self.sim.data.body_xpos[self.torso_body_id])
+
+
+    @property
+    def _examination_start_xpos(self):
+        """
+        Grabs start position for ultrasound examination
+
+        Returns:
+            np.array: start pos (x,y,z)
+
+        NOTE This function has several shortcomings:
+            - The overall size of the torso is not known, hence hard-coded values must be used. 
+            - The numeric values used in the function have been found through testing, and are prone to:
+                * Changes in the torso size.
+                * Rotation of the torso.
+        """
+        pos_x = self._torso_xpos[0] - 0.17 / 2
+        pos_y = self._torso_xpos[1]
+        pos_z = self._torso_xpos[2] + 0.056
+
+        return np.array([pos_x, pos_y, pos_z])
+    
+
+    @property
+    def _examination_end_xpos(self):
+        """
+        Grabs end position for ultrasound examination
+
+        Returns:
+            np.array: end pos (x,y,z)
+
+        NOTE This function has several shortcomings:
+            - The overall size of the torso is not known, hence hard-coded values must be used. 
+            - The numeric values used in the function have been found through testing, and are prone to:
+                * Changes in the torso size.
+                * Rotation of the torso.
+        """
+        pos_x = self._torso_xpos[0] + 0.17 / 2
+        pos_y = self._torso_xpos[1]
+        pos_z = self._torso_xpos[2] + 0.056
+
+        return np.array([pos_x, pos_y, pos_z])
+    
