@@ -139,6 +139,10 @@ class Ultrasound(SingleArmEnv):
         self.contact_force_lower_threshold = 40
         self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
 
+        # examination trajectory
+        self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
+        self.top_torso_offset = 0.056   # offset from z_center of torso to top of torso
+
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
@@ -526,9 +530,9 @@ class Ultrasound(SingleArmEnv):
                 * Changes in the torso size.
                 * Rotation of the torso.
         """
-        pos_x = self._torso_xpos[0] - 0.17 / 2
+        pos_x = self._torso_xpos[0] - self.traj_x_offset / 2
         pos_y = self._torso_xpos[1]
-        pos_z = self._torso_xpos[2] + 0.056
+        pos_z = self._torso_xpos[2] + self.top_torso_offset
 
         return np.array([pos_x, pos_y, pos_z])
     
@@ -547,9 +551,9 @@ class Ultrasound(SingleArmEnv):
                 * Changes in the torso size.
                 * Rotation of the torso.
         """
-        pos_x = self._torso_xpos[0] + 0.17 / 2
+        pos_x = self._torso_xpos[0] + self.traj_x_offset / 2
         pos_y = self._torso_xpos[1]
-        pos_z = self._torso_xpos[2] + 0.056
+        pos_z = self._torso_xpos[2] + self.top_torso_offset
 
         return np.array([pos_x, pos_y, pos_z])
     
