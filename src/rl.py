@@ -37,6 +37,7 @@ def make_training_env(env_id, options, rank, seed=0):
     set_random_seed(seed)
     return _init
 
+
 if __name__ == '__main__':
     register_env(FetchPush)
 
@@ -48,11 +49,13 @@ if __name__ == '__main__':
     env_id = env_options.pop("env_id")
 
     # Settings for stable-baselines RL algorithm
-    training = config["training"]
-    seed = config["seed"]
     sb_config = config["sb_config"]
     training_timesteps = sb_config["total_timesteps"]
     num_cpu = sb_config["num_cpu"]
+
+    # Settings for stable-baselines policy
+    policy_kwargs = config["sb_policy"]
+    policy_type = policy_kwargs.pop("type")
 
     # Settings used for file handling and logging (save/load destination etc)
     file_handling = config["file_handling"]
@@ -74,6 +77,11 @@ if __name__ == '__main__':
     load_model_path = os.path.join(load_model_folder, load_model_filename)
     load_vecnormalize_path = os.path.join(load_model_folder, 'vec_normalize_' + load_model_filename + '.pkl')
 
+    # Settings for pipeline
+    training = config["training"]
+    seed = config["seed"]
+
+    # RL pipeline
     if training:
         env = SubprocVecEnv([make_training_env(env_id, env_options, i, seed) for i in range(num_cpu)])
         env = VecNormalize(env)
@@ -83,7 +91,7 @@ if __name__ == '__main__':
             env = VecNormalize.load(load_vecnormalize_for_training_path, env)
             model = PPO.load(load_model_for_training_path, env=env)
         else:
-            model = PPO('MlpPolicy', env, verbose=1, tensorboard_log=tb_log_folder)
+            model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
 
 
         # Evaluation during training (save best model)

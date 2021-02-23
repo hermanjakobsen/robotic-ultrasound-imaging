@@ -1,10 +1,17 @@
 seed: 0
-training: False    # Whether to train a new model or not
+training: False   # Whether to train a new model or not
 
 # Settings for stable-baselines RL algorithm
 sb_config:
   total_timesteps: 5.0e+6
-  num_cpu: 6
+  num_cpu: 5
+
+# Policy settings
+sb_policy:
+  type: "MlpPolicy"
+  net_arch: 
+    - pi: [64, 64]    # Custom actor network
+      vf: [64, 64]    # Value function network
 
 # Specify environment
 robosuite:
@@ -48,7 +55,7 @@ file_handling:
   save_model_filename: "test"
   # Loading of trained models
   load_model_folder: "trained_models"
-  load_model_filename: "5M_contact_establishment_orientation"
+  load_model_filename: "test"
   # Continue training on trained model
   load_model_for_training_path: null
   load_vecnormalize_for_training_path: null 
