@@ -193,19 +193,29 @@ class Ultrasound(SingleArmEnv):
 
 
         # reward for probe touching torso
-        if self._check_probe_contact_with_upper_part_torso():
-            reward += 2.25
+        #if self._check_probe_contact_with_upper_part_torso():
+        #    reward += 2.25
 
         # reaching reward
-        reward += 1.5 * (1 - np.tanh(5 * dist_to_torso_center))
+        #reward += np.exp(-dist_to_torso_center)
 
         # probe orientation penalty
-        ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
-        reward -= np.tanh(ori_deviation)
+        #ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
+        #reward -= (1 - np.exp(-ori_deviation))
 
         # touching table penalty (will also end the episode)
-        if self._check_probe_contact_with_table():
-            return -100
+        #if self._check_probe_contact_with_table():
+        #    return -100
+
+
+        ## Trajectory tracking ##
+        trajectory = self._get_examination_trajectory(10)
+
+        desired_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])    # Upright probe orientation found from experimenting
+        desired_orientation = convert_quat(desired_orientation, to="wxyz")
+        
+
+        # policy_freq == control_freq
 
         return reward
 
@@ -237,8 +247,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[-0.12, 0.12],
-                y_range=[-0.12, 0.12],
+                x_range=[0, 0],#[-0.12, 0.12],
+                y_range=[0, 0],#[-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -343,7 +353,10 @@ class Ultrasound(SingleArmEnv):
         self.ee_inital_orientation = convert_quat(self._eef_xquat, to="wxyz")    # (w, x, y, z) quaternion
 
         # initialize timer
-        self.timer = 0
+        self.timer = 0      # Number of steps taken in the environment
+
+        # Override initial robot joint position
+        self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.327, 2.489, -2.679, -1.571, -0.344])
 
 
     def _post_action(self, action):
@@ -360,6 +373,9 @@ class Ultrasound(SingleArmEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
+        
+        # Increment timer
+        self.timer += 1
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
