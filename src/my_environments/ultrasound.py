@@ -138,10 +138,8 @@ class Ultrasound(SingleArmEnv):
         self.contact_force_upper_threshold = 60
         self.contact_force_lower_threshold = 40
         self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
-
-        # examination trajectory
-        self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.056   # offset from z_center of torso to top of torso
+        self.scale_pos_error = 30
+        self.scale_ori_error = 0.2
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -173,6 +171,13 @@ class Ultrasound(SingleArmEnv):
             camera_depths=camera_depths,
         )
 
+        # examination trajectory
+        self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
+        self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
+        self.trajectory = self._get_examination_trajectory(10)
+        self.examination_probe_orientation = convert_quat(np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]), to="wxyz")    # Upright probe orientation found from experimenting
+        self.curr_pt_idx = 0            # index of point currently tracking
+
 
     def reward(self, action=None):
         """
@@ -189,7 +194,7 @@ class Ultrasound(SingleArmEnv):
 
         total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
         dist_to_torso_center = np.linalg.norm(self._eef_xpos - self._torso_xpos)
-        ee_orientation = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
+        ee_current_orientation = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
 
 
         # reward for probe touching torso
@@ -209,14 +214,20 @@ class Ultrasound(SingleArmEnv):
 
 
         ## Trajectory tracking ##
-        trajectory = self._get_examination_trajectory(10)
+        track_pt_time = self.horizon / np.size(self.trajectory, 0)    # How long to track each point in trajectory
 
-        desired_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])    # Upright probe orientation found from experimenting
-        desired_orientation = convert_quat(desired_orientation, to="wxyz")
+        if self.timer % track_pt_time == 0 and self.timer != 0:
+            self.curr_pt_idx += 1
+        traj_pt = self.trajectory[self.curr_pt_idx]
+
+        pos_error = self.scale_pos_error * ((traj_pt - self._eef_xpos) ** 2)
+        ori_error = self.scale_ori_error * distance_quat(self.examination_probe_orientation, ee_current_orientation)
+        ori_error = np.array([ori_error])
+
+        error_vec = np.concatenate((pos_error, ori_error))
+
+        reward = np.sum(np.exp(-1*error_vec))
         
-
-        # policy_freq == control_freq
-
         return reward
 
 
@@ -501,6 +512,7 @@ class Ultrasound(SingleArmEnv):
         assert n_pts > 1, "The number of points must be atleast 2"
 
         trajectory = np.zeros((n_pts, 3))
+        
         start_pos = self._examination_start_xpos
         end_pos = self._examination_end_xpos
         
