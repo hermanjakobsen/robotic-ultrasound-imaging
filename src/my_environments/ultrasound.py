@@ -356,7 +356,8 @@ class Ultrasound(SingleArmEnv):
         self.timer = 0      # Number of steps taken in the environment
 
         # Override initial robot joint position
-        self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.327, 2.489, -2.679, -1.571, -0.344])
+        if self.robots[0].name == "UR5e":
+            self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
 
 
     def _post_action(self, action):
