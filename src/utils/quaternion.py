@@ -18,6 +18,21 @@ def q_log(q):
         return np.zeros(3) 
 
     return np.arccos(v) * u / u_norm
+
+
+def difference_quat(q1, q2):
+    """
+    Calculates the difference between two quaternions
+
+    Args:
+        q1 (np.array): quaternion
+        q2 (np.array): quaternion  
+
+    Returns:
+        float: difference
+    """
+    q2_conj = quat.qconjugate(q2)
+    return quat.qmult(q1, q2_conj)
     
 
 def distance_quat(q1, q2):
@@ -31,8 +46,7 @@ def distance_quat(q1, q2):
     Returns:
         float: distance metric
     """
-    q2_conj = quat.qconjugate(q2)
-    q_mult = quat.qmult(q1, q2_conj)
+    q_mult = difference_quat(q1, q2)
 
     if q_mult[0] == -1 and q_mult[1:] == np.array([0, 0, 0]):
         return 0
