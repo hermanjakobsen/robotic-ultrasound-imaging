@@ -297,11 +297,11 @@ class Ultrasound(SingleArmEnv):
             return self.robots[0].ee_torque
 
         @sensor(modality=modality)
-        def probe_ori_to_desired(obs_cache):
+        def probe_to_desired_quat(obs_cache):
             return difference_quat(obs_cache[f"{pf}eef_quat"], self.examination_probe_orientation) if \
                     f"{pf}eef_quat" in obs_cache else np.zeros(4)
 
-        sensors = [probe_force, probe_torque, probe_ori_to_desired]
+        sensors = [probe_force, probe_torque, probe_to_desired_quat]
         
         # low-level object information
         if self.use_object_obs:
