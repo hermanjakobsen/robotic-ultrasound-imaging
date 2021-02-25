@@ -14,7 +14,7 @@ from robosuite.utils.observables import Observable, sensor
 from my_models.objects import SoftTorsoObject, BoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-from utils.quaternion import distance_quat
+from utils.quaternion import distance_quat, difference_quat
 
 
 class Ultrasound(SingleArmEnv):
@@ -175,9 +175,8 @@ class Ultrasound(SingleArmEnv):
         self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
         self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
         self.trajectory = self._get_examination_trajectory(10)
-        self.examination_probe_orientation = convert_quat(np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]), to="wxyz")    # Upright probe orientation found from experimenting
+        self.examination_probe_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
         self.curr_pt_idx = 0            # index of point currently tracking
-
 
     def reward(self, action=None):
         """
@@ -258,8 +257,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[0, 0],#[-0.12, 0.12],
-                y_range=[0, 0],#[-0.12, 0.12],
+                x_range=[-0.12, 0.12],
+                y_range=[-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -296,12 +295,10 @@ class Ultrasound(SingleArmEnv):
         """
         observables = super()._setup_observables()
 
+        pf = self.robots[0].robot_model.naming_prefix
+
         # probe information
         modality = "probe"
-
-        @sensor(modality=modality)
-        def probe_contact_with_upper_part_torso(obs_cache):
-            return self._check_probe_contact_with_upper_part_torso()
 
         @sensor(modality=modality)
         def probe_force(obs_cache):
@@ -311,7 +308,12 @@ class Ultrasound(SingleArmEnv):
         def probe_torque(obs_cache):
             return self.robots[0].ee_torque
 
-        sensors = [probe_contact_with_upper_part_torso, probe_force, probe_torque]
+        @sensor(modality=modality)
+        def probe_ori_to_desired(obs_cache):
+            return difference_quat(obs_cache[f"{pf}eef_quat"], self.examination_probe_orientation) if \
+                    f"{pf}eef_quat" in obs_cache else np.zeros(4)
+
+        sensors = [probe_force, probe_torque, probe_ori_to_desired]
         
         # low-level object information
         if self.use_object_obs:
@@ -325,7 +327,12 @@ class Ultrasound(SingleArmEnv):
             def torso_quat(obs_cache):
                 return convert_quat(np.array(self.sim.data.body_xquat[self.torso_body_id]), to="xyzw")
 
-            sensors += [torso_pos, torso_quat]
+            @sensor(modality=modality)
+            def probe_to_torso_pos(obs_cache):
+                return obs_cache[f"{pf}eef_pos"] - obs_cache["torso_pos"] if \
+                    f"{pf}eef_pos" in obs_cache and "torso_pos" in obs_cache else np.zeros(3)
+
+            sensors += [torso_pos, torso_quat, probe_to_torso_pos]
 
         names = [s.__name__ for s in sensors]
 

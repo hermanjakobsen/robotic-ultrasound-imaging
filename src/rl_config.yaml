@@ -1,17 +1,17 @@
 seed: 0
-training: False   # Whether to train a new model or not
+training: True   # Whether to train a new model or not
 
 # Settings for stable-baselines RL algorithm
 sb_config:
-  total_timesteps: 5.0e+6
+  total_timesteps: 4.0e+6
   num_cpu: 5
 
 # Policy settings
 sb_policy:
   type: "MlpPolicy"
   net_arch: 
-    - pi: [64, 64]    # Custom actor network
-      vf: [64, 64]    # Value function network
+    - pi: [128, 128]    # Custom actor network
+      vf: [128, 128]    # Value function network
 
 # Specify environment
 robosuite:
@@ -50,12 +50,12 @@ robosuite:
 file_handling:
   # Logging with Tensorboard and saving trained models
   tb_log_folder: "ppo_ultrasound_tensorboard"
-  tb_log_name: "test"
+  tb_log_name: "4M_orientation"
   save_model_folder: "trained_models"
-  save_model_filename: "test"
+  save_model_filename: "4M_orientation"
   # Loading of trained models
   load_model_folder: "trained_models"
-  load_model_filename: "test"
+  load_model_filename: "4M_orientation"
   # Continue training on trained model
   load_model_for_training_path: null
   load_vecnormalize_for_training_path: null 
