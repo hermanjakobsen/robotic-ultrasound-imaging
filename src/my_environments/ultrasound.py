@@ -102,7 +102,7 @@ class Ultrasound(SingleArmEnv):
         controller_configs=None,
         gripper_types="UltrasoundProbeGripper",
         initialization_noise="default",
-        table_full_size=(0.8, 0.8, 0.05),
+        table_full_size=100*(0.8, 0.8, 0.05),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -145,6 +145,7 @@ class Ultrasound(SingleArmEnv):
         self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
         self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
         self.examination_probe_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
+        self.num_traj_pts = 5           # number of points making up the trajectory
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -190,16 +191,13 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0. 
 
-        total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
-        dist_to_torso_center = np.linalg.norm(self._eef_xpos - self._torso_xpos)
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.examination_probe_orientation, to="wxyz")
 
         ## Trajectory tracking ##
-        # Create examination trajectory here, due to some weird behaviour of torso pos in reset method
-        self.trajectory = self._get_examination_trajectory(5)
+        self.trajectory = self._get_examination_trajectory(self.num_traj_pts)
 
-        track_pt_time = np.floor(self.horizon / np.size(self.trajectory, 0))    # How long to track each point in trajectory
+        track_pt_time = np.floor(self.horizon / self.num_traj_pts)    # How long to track each point in trajectory
 
         if self.timer % track_pt_time == 0 and self.timer != 0:
             self.curr_pt_idx += 1
@@ -207,9 +205,10 @@ class Ultrasound(SingleArmEnv):
 
         # pose reward
         pos_error = self.scale_pos_error * (np.power(traj_pt - self._eef_xpos, 2))
-        ori_error = self.scale_ori_error * np.array([distance_quat(ee_desired_ori, ee_current_ori)])
+        ori_error = self.scale_ori_error * distance_quat(ee_desired_ori, ee_current_ori)
+        ori_error = np.array([ori_error])
         error_vec = np.concatenate((pos_error, ori_error))
-        reward = np.sum(np.exp(-1*error_vec))
+        reward = np.sum(np.exp(-1 * error_vec))
 
         # reward for probe touching torso
         if self._check_probe_contact_with_upper_part_torso():
@@ -297,11 +296,11 @@ class Ultrasound(SingleArmEnv):
             return self.robots[0].ee_torque
 
         @sensor(modality=modality)
-        def probe_ori_to_desired(obs_cache):
+        def probe_ori_to_desired_quat(obs_cache):
             return difference_quat(obs_cache[f"{pf}eef_quat"], self.examination_probe_orientation) if \
                     f"{pf}eef_quat" in obs_cache else np.zeros(4)
 
-        sensors = [probe_force, probe_torque, probe_ori_to_desired]
+        sensors = [probe_force, probe_torque, probe_ori_to_desired_quat]
         
         # low-level object information
         if self.use_object_obs:
@@ -358,8 +357,8 @@ class Ultrasound(SingleArmEnv):
         # probe resets - orientation at initial state
         self.ee_inital_orientation = convert_quat(self._eef_xquat, to="wxyz")    # (w, x, y, z) quaternion
 
-        # initialize time
-        self.timer = 0      # Number of steps taken in the environment
+        # initialize timer
+        self.timer = 0          # Number of steps taken in the environment
 
         self.curr_pt_idx = 0    # Index of current point tracking in trajectory
 
