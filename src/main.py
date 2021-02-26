@@ -31,9 +31,11 @@ def get_policy_action(obs):
     low, high = env.action_spec
     return np.random.uniform(low, high)
 
-# Environment specifications
 env_id = "Ultrasound"
-controller_config = {
+
+env_options = {}
+env_options["robots"] = "UR5e"
+env_options["controller_configs"] = {
     "type": "OSC_POSE",
     "input_max": 1,
     "input_min": -1,
@@ -51,17 +53,12 @@ controller_config = {
     "interpolation": "linear",
     "ramp_ratio": 0.2
 }
-
-
-env_options = {}
-env_options["robots"] = "UR5e"
-env_options["has_renderer"] = True
-env_options["render_camera"] = None
-env_options["has_offscreen_renderer"] = False
-env_options["use_camera_obs"] = False
-env_options["controller_configs"] = controller_config
 env_options["control_freq"] = 100
- 
+env_options["has_renderer"] = True
+env_options["has_offscreen_renderer"] = False
+env_options["render_camera"] = None
+env_options["use_camera_obs"] = False
+env_options["use_object_obs"] = True
 
 env = suite.make(env_id, **env_options)
 
@@ -71,7 +68,7 @@ obs = env.reset()
 done = False
 ret = 0.
 for t in range(env.horizon):
-    action = [0, 0, 0, 0.2, 0 ,0]         # use observation to decide on an action
+    action = [0, 0, 0, 0., 0 ,0]         # use observation to decide on an action
     obs, reward, done, _ = env.step(action) # play action
     eef_pos = obs["robot0_eef_pos"]
     #print(f"eef: {eef_pos}")
