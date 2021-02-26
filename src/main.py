@@ -58,7 +58,8 @@ env_options["has_renderer"] = True
 env_options["has_offscreen_renderer"] = False
 env_options["render_camera"] = None
 env_options["use_camera_obs"] = False
-env_options["use_object_obs"] = True
+env_options["horizon"] = 400
+ 
 
 env = suite.make(env_id, **env_options)
 
@@ -77,6 +78,8 @@ for t in range(env.horizon):
     torso_pos = obs["torso_pos"]
     ret += reward
     env.render()
+    if t == 100:
+        env.reset()
 print("rollout completed with return {}".format(ret))
 
 ## Simulations
