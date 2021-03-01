@@ -19,7 +19,10 @@ from my_models.grippers import UltrasoundProbeGripper
 from my_environments import Ultrasound, FetchPush
 from utils.common import register_gripper
 
-def make_training_env(env_id, options, rank, seed=0):
+import gym
+
+
+def make_robosuite_env(env_id, options, rank, seed=0):
     """
     Utility function for multiprocessed env.
 
@@ -38,8 +41,26 @@ def make_training_env(env_id, options, rank, seed=0):
     return _init
 
 
+def make_gym_env(env_id, rank, seed=0):
+    """
+    Utility function for multiprocessed env.
+
+    :param env_id: (str) the environment ID
+    :param seed: (int) the inital seed for RNG
+    :param rank: (int) index of the subprocess
+    """
+    def _init():
+        env = gym.make(env_id, reward_type="dense")
+        env = gym.wrappers.FlattenObservation(env)
+        env = Monitor(env)
+        env.seed(seed + rank)
+        return env
+    set_random_seed(seed)
+    return _init
+
+
 if __name__ == '__main__':
-    register_env(FetchPush)
+    register_env(Ultrasound)
 
     with open("rl_config.yaml", 'r') as stream:
         config = yaml.safe_load(stream)
@@ -68,9 +89,6 @@ if __name__ == '__main__':
     load_model_folder = file_handling["load_model_folder"]
     load_model_filename = file_handling["load_model_filename"]
 
-    load_model_for_training_path = file_handling["load_model_for_training_path"]
-    load_vecnormalize_for_training_path = file_handling["load_vecnormalize_for_training_path"]
-
     # Join paths
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -83,49 +101,41 @@ if __name__ == '__main__':
 
     # RL pipeline
     if training:
-        env = SubprocVecEnv([make_training_env(env_id, env_options, i, seed) for i in range(num_cpu)])
+        env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
         env = VecNormalize(env)
 
-        # Check if should continue training on a model
-        if isinstance(load_model_for_training_path, str):
-            env = VecNormalize.load(load_vecnormalize_for_training_path, env)
-            model = PPO.load(load_model_for_training_path, env=env)
-        else:
-            model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
-
-
-        # Evaluation during training (save best model)
-        eval_env_func = make_training_env(env_id, env_options, num_cpu, seed)
-        eval_env = DummyVecEnv([eval_env_func])
-        eval_env = VecNormalize(eval_env)
-
-        eval_callback = EvalCallback(eval_env, best_model_save_path='./best_models/',
-                             log_path='./logs_best_model/',
-                             deterministic=True, render=False, n_eval_episodes=10)
-
+        # Create model
+        model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
+       
         # Training
-        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=eval_callback)
+        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name)
 
         # Save trained model
         model.save(save_model_path)
         env.save(save_vecnormalize_path)
 
     else:
+        # Create evaluation environment
         env_options['has_renderer'] = True
         register_gripper(UltrasoundProbeGripper)
         env_gym = GymWrapper(suite.make(env_id, **env_options))
         env = DummyVecEnv([lambda : env_gym])
 
-        model = PPO.load(load_model_path)
+        # Load normalized env
         env = VecNormalize.load(load_vecnormalize_path, env)
 
+        # Turn of updates and reward normalization
         env.training = False
         env.norm_reward = False
 
+        # Load model
+        model = PPO.load(load_model_path, env)
+
+        # Simulate environment
         obs = env.reset()
         eprew = 0
         while True:
-            action, _states = model.predict(obs, deterministic=True)
+            action, _states = model.predict(obs)
             #action = env.action_space.sample()
             obs, reward, done, info = env.step(action)
             #print(action)
