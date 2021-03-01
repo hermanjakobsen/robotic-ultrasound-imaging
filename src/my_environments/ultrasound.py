@@ -137,15 +137,14 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
         self.contact_force_upper_threshold = 60
         self.contact_force_lower_threshold = 40
-        self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
-        self.scale_pos_error = 30
+        self.scale_pos_error = 100
         self.scale_ori_error = 0.2
+        self.pos_reward_threshold = 2.5
 
         # examination trajectory
         self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
         self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
         self.examination_probe_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
-        self.num_traj_pts = 5           # number of points making up the trajectory
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -193,27 +192,26 @@ class Ultrasound(SingleArmEnv):
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.examination_probe_orientation, to="wxyz")
-
+        
         ## Trajectory tracking ##
-        self.trajectory = self._get_examination_trajectory(self.num_traj_pts)
+        trajectory = self._get_trajectory()
+        traj_pt = trajectory[self.steps_taken]
 
-        track_pt_time = np.floor(self.horizon / self.num_traj_pts)    # How long to track each point in trajectory
-
-        if self.timer % track_pt_time == 0 and self.timer != 0:
-            self.curr_pt_idx += 1
-        traj_pt = self.trajectory[self.curr_pt_idx]
-
-        # pose reward
         pos_error = self.scale_pos_error * (np.power(traj_pt - self._eef_xpos, 2))
+        self.pos_reward = np.sum(np.exp(-1 * pos_error))
+
         ori_error = self.scale_ori_error * distance_quat(ee_desired_ori, ee_current_ori)
         ori_error = np.array([ori_error])
-        error_vec = np.concatenate((pos_error, ori_error))
-        reward = np.sum(np.exp(-1 * error_vec))
+        self.ori_reward = np.sum(np.exp(-1 * ori_error))
+
+        # pose reward
+        #error_vec = np.concatenate((pos_error, ori_error))
+        reward += self.pos_reward + self.ori_reward
 
         # reward for probe touching torso
         if self._check_probe_contact_with_upper_part_torso():
-            reward += 1
-
+            reward += 0.5
+        
         return reward
 
 
@@ -244,8 +242,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[0, 0], #[-0.12, 0.12],
-                y_range=[0, 0], #[-0.12, 0.12],
+                x_range=[-0.12, 0.12],
+                y_range=[-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -353,18 +351,14 @@ class Ultrasound(SingleArmEnv):
         # ee resets - bias at initial state
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
-
-        # probe resets - orientation at initial state
-        self.ee_inital_orientation = convert_quat(self._eef_xquat, to="wxyz")    # (w, x, y, z) quaternion
+        self.ee_initial_pos = self._eef_xpos
 
         # initialize timer
-        self.timer = 0          # Number of steps taken in the environment
+        self.steps_taken = 0          # Number of steps taken in the environment
 
-        self.curr_pt_idx = 0    # Index of current point tracking in trajectory
-
-        # Override initial robot joint position
-        if self.robots[0].name == "UR5e":
-            self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
+        # Override initial robot joint position (Used for trajectory tracking task)
+        #if self.robots[0].name == "UR5e":
+        #    self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
 
 
     def _post_action(self, action):
@@ -382,8 +376,8 @@ class Ultrasound(SingleArmEnv):
         """
         reward, done, info = super()._post_action(action)
         
-        # Increment timer
-        self.timer += 1
+        # Increment steps_taken
+        self.steps_taken += 1
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
@@ -484,7 +478,12 @@ class Ultrasound(SingleArmEnv):
         # Prematurely terminate if reaching joint limits
         if self.robots[0].check_q_limits():
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
-            #terminated = True
+            terminated = True
+
+        # Prematurely terminate if probe deviates away from trajectory
+        if self.pos_reward < self.pos_reward_threshold:
+            print(40 * '-' + " DEVIATES FROM TRAJECTORY " + 40 * '-')
+            terminated = True
 
         # Prematurely terminate if task is success
        # if self._check_success():
@@ -493,8 +492,42 @@ class Ultrasound(SingleArmEnv):
 
         return terminated
 
+
+    def _calculate_line(self, start_pos, end_pos, n_pts):
+        """
+        Calculates a line between two points in 3D-space.
+
+        Args:
+            start_pos (np.array): start position for line (x,y,z)
+            end_pos (np.array): end position for line (x,y,z)
+            n_pts (int): number of points making up the line
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        assert n_pts > 1, "The number of points must be atleast 2"
+
+        line_pts = np.zeros((n_pts, 3))
+
+        dir_vec = np.array([
+            end_pos[0] - start_pos[0], 
+            end_pos[1] - start_pos[1], 
+            end_pos[2] - start_pos[2]
+            ])
+
+        for i in range(n_pts):
+            t = 1 / (n_pts-1) * i
+            point = np.array([
+                start_pos[0] + dir_vec[0] * t, 
+                start_pos[1] + dir_vec[1] * t,
+                start_pos[2] + dir_vec[2] * t
+                ])
+            line_pts[i] = point
+
+        return line_pts
+
     
-    def _get_examination_trajectory(self, n_pts):
+    def _get_examination_trajectory(self):
         """
         Calculates the examination trajectory along the torso. The trajectory is calculated as a line 
         between the start and end position in the xy-plane.
@@ -504,29 +537,42 @@ class Ultrasound(SingleArmEnv):
 
         Returns:
             [np.array]:  trajectory points (x,y,z)
+        """     
+        n_pts = np.ceil(self.horizon / 2).astype(int)
+        return self._calculate_line(self._examination_start_xpos, self._examination_end_xpos, n_pts)
+
+
+    def _get_inital_pos_to_torso_trajectory(self):
         """
-        assert n_pts > 1, "The number of points must be atleast 2"
+        Calculates the trajectory from the probe's initial position to examination start position on the torso. The trajectory is calculated as a line 
+        in 3D-space.
 
-        trajectory = np.zeros((n_pts, 3))
+        Args:
+            n_pts (int): number of points along the trajectory
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        n_pts = np.floor(self.horizon / 2).astype(int)
+        return self._calculate_line(self.ee_initial_pos, self._examination_start_xpos, n_pts)
         
-        start_pos = self._examination_start_xpos
-        end_pos = self._examination_end_xpos
+    
+    def _get_trajectory(self):
+        """
+        Calculates the trajectory from the probe's initial position to examination end position on the torso. The trajectory consists of two lines 
+        in 3D-space. The first line goes from the probe's initial position to the examination start position on the torso. The second line goes from the 
+        examination start position to the end position, along the torso. 
+
+        Args:
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        to_torso_traj = self._get_inital_pos_to_torso_trajectory()
+        examination_traj = self._get_examination_trajectory()
+
+        trajectory = np.concatenate((to_torso_traj, examination_traj))
         
-        dir_vec = np.array([
-            end_pos[0] - start_pos[0], 
-            end_pos[1] - start_pos[1], 
-            end_pos[2] - start_pos[2]
-            ])
-
-        for i in range(n_pts):
-            t = 1 / (n_pts-1) * i
-            traj_pt = np.array([
-                start_pos[0] + dir_vec[0] * t, 
-                start_pos[1] + dir_vec[1] * t,
-                start_pos[2] + dir_vec[2] * t
-                ])
-            trajectory[i] = traj_pt
-
         return trajectory
 
 
