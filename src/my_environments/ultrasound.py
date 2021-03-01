@@ -194,8 +194,7 @@ class Ultrasound(SingleArmEnv):
         ee_desired_ori = convert_quat(self.examination_probe_orientation, to="wxyz")
         
         ## Trajectory tracking ##
-        trajectory = self._get_trajectory()
-        traj_pt = trajectory[self.steps_taken]
+        traj_pt = self.trajectory[self.steps_taken]
 
         pos_error = self.scale_pos_error * (np.power(traj_pt - self._eef_xpos, 2))
         self.pos_reward = np.sum(np.exp(-1 * pos_error))
@@ -279,6 +278,8 @@ class Ultrasound(SingleArmEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
+
+        self.trajectory = self._get_trajectory()    # Create trajectory here because reset function does not update torso pos
 
         pf = self.robots[0].robot_model.naming_prefix
 
