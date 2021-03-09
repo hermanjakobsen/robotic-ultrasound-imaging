@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import numpy as np
 import re
+from klampt.model import trajectory
 
 from robosuite.utils.transform_utils import convert_quat
 from robosuite.utils.mjcf_utils import CustomMaterial
@@ -196,14 +197,14 @@ class Ultrasound(SingleArmEnv):
         """
 
         reward = 0.
-
+        
         total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
         
         ## Trajectory tracking ##
-        self.traj_pt = self.trajectory[self.timesteps]
+        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         # pose error
         pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
@@ -220,11 +221,7 @@ class Ultrasound(SingleArmEnv):
         if self._check_probe_contact_with_torso():
             # reward for contact
             reward += 1
-
-            # penalty for using excessive force
-            if total_force_ee > self.contact_force_upper_threshold:
-                reward -= self.excess_force_penalty_mul * total_force_ee
-
+        
         return reward
 
 
@@ -293,8 +290,8 @@ class Ultrasound(SingleArmEnv):
         """
         observables = super()._setup_observables()
 
-        self.trajectory = self._get_trajectory()    # Create trajectory here because reset function does not update torso pos
-        self.traj_pt = self.trajectory[self.timesteps]
+        self.trajectory = self._get_trajectory()            # Create trajectory here because reset function does not update torso pos
+        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         pf = self.robots[0].robot_model.naming_prefix
 
@@ -375,8 +372,9 @@ class Ultrasound(SingleArmEnv):
         self.ee_torque_bias = np.zeros(3)
         self.ee_initial_pos = self._eef_xpos
 
-        # initialize timer
-        self.timesteps = 0          # Number of steps taken in the environment
+        # initialize timestep
+        self.timestep = 0               # number of steps taken in episode
+        self.traj_step = 0.             # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
 
         # Override initial robot joint position (Used for trajectory tracking task)
         #if self.robots[0].name == "UR5e":
@@ -398,8 +396,12 @@ class Ultrasound(SingleArmEnv):
         """
         reward, done, info = super()._post_action(action)
         
-        # Increment timesteps
-        self.timesteps += 1
+        # Increment timestep
+        self.timestep += 1 
+
+        # Convert to trajectory timestep
+        normalizer = (self.horizon / (self.num_waypoints - 1))
+        self.traj_step = self.timestep / normalizer
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
@@ -562,7 +564,7 @@ class Ultrasound(SingleArmEnv):
     def _get_examination_trajectory(self):
         """
         Calculates the examination trajectory along the torso. The trajectory is calculated as a line 
-        between the start and end position in the xy-plane.
+        between the start and end position in the xy-plane. 
 
         Args:
             n_pts (int): number of points along the trajectory
@@ -591,21 +593,19 @@ class Ultrasound(SingleArmEnv):
     
     def _get_trajectory(self):
         """
-        Calculates the trajectory from the probe's initial position to examination end position on the torso. The trajectory consists of two lines 
-        in 3D-space. The first line goes from the probe's initial position to the examination start position on the torso. The second line goes from the 
-        examination start position to the end position, along the torso. 
+        Calculates a trajectory using three waypoints; probe initial position, the examination start position on the torso and the 
+        examination end position on the torso. The probe initial position is given at time t=0, the examination start position at t=1 and the 
+        examination end position at t=2.
 
         Args:
 
         Returns:
-            [np.array]:  trajectory points (x,y,z)
+            (klampt.model.trajectory Object):  trajectory
         """
-        to_torso_traj = self._get_inital_pos_to_torso_trajectory()
-        examination_traj = self._get_examination_trajectory()
+        milestones = np.array([self.ee_initial_pos, self._examination_start_xpos, self._examination_end_xpos])
+        self.num_waypoints = np.size(milestones, 0)
 
-        trajectory = np.concatenate((to_torso_traj, examination_traj))
-        
-        return trajectory
+        return trajectory.Trajectory(milestones=milestones)
 
 
     @property
