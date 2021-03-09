@@ -142,7 +142,7 @@ class Ultrasound(SingleArmEnv):
         self.contact_force_lower_threshold = 0
         self.pos_error_mul = 100
         self.ori_error_mul = 0.2
-        self.pos_reward_threshold = 2.5
+        self.pos_reward_threshold = 2.6
         self.excess_force_penalty_mul = 0.05
         self.timsteps_threshold = 30
 
@@ -279,6 +279,7 @@ class Ultrasound(SingleArmEnv):
 
         # additional object references from this env
         self.torso_body_id = self.sim.model.body_name2id(self.torso.root_body)
+        
 
 
     def _setup_observables(self):
@@ -289,9 +290,6 @@ class Ultrasound(SingleArmEnv):
             OrderedDict: Dictionary mapping observable names to its corresponding Observable object
         """
         observables = super()._setup_observables()
-
-        self.trajectory = self._get_trajectory()            # Create trajectory here because reset function does not update torso pos
-        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         pf = self.robots[0].robot_model.naming_prefix
 
@@ -366,19 +364,28 @@ class Ultrasound(SingleArmEnv):
             # Loop through all objects and reset their positions
             for obj_pos, _, obj in object_placements.values():
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
-        
+                
         # ee resets - bias at initial state
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
         self.ee_initial_pos = self._eef_xpos
 
+        # create trajectory
+        self.trajectory = self._get_trajectory()            # Be aware of position update bug for torso
+
         # initialize timestep
-        self.timestep = 0               # number of steps taken in episode
-        self.traj_step = 0.             # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
+        self.timestep = 0                                                          # number of steps taken in episode
+        self.initial_traj_step = np.random.default_rng().uniform(low=0, high=self.num_waypoints - 1)
+        self.traj_step = self.initial_traj_step                                    # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
+
+        # set first trajectory point
+        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         # Override initial robot joint position (Used for trajectory tracking task)
         #if self.robots[0].name == "UR5e":
         #    self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
+
+
 
 
     def _post_action(self, action):
@@ -400,8 +407,8 @@ class Ultrasound(SingleArmEnv):
         self.timestep += 1 
 
         # Convert to trajectory timestep
-        normalizer = (self.horizon / (self.num_waypoints - 1))
-        self.traj_step = self.timestep / normalizer
+        normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
+        self.traj_step = self.timestep / normalizer + self.initial_traj_step
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
@@ -551,7 +558,8 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        return np.array(self.sim.data.body_xpos[self.torso_body_id])
+        #np.array(self.sim.data.body_xpos[self.torso_body_id])
+        return self.sim.data.qpos[[6, 7, 8]]
 
 
     @property
