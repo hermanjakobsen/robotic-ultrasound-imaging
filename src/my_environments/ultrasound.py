@@ -91,6 +91,7 @@ class Ultrasound(SingleArmEnv):
         camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
             "camera names" param.
+        early_termination (bool): True if episode is allowed to finish early
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -123,6 +124,7 @@ class Ultrasound(SingleArmEnv):
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
+        early_termination=False,
     ):
         assert gripper_types =="UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -135,22 +137,27 @@ class Ultrasound(SingleArmEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
-        self.contact_force_upper_threshold = 60
-        self.contact_force_lower_threshold = 40
-        self.scale_pos_error = 100
-        self.scale_ori_error = 0.2
+        self.contact_force_upper_threshold = 20
+        self.contact_force_lower_threshold = 0
+        self.pos_error_mul = 100
+        self.ori_error_mul = 0.2
         self.pos_reward_threshold = 2.5
+        self.excess_force_penalty_mul = 0.05
+        self.timsteps_threshold = 30
 
         # examination trajectory
         self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
         self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
-        self.examination_probe_orientation = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
+        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
         # object placement initializer
         self.placement_initializer = placement_initializer
+
+        # misc settings
+        self.early_termination = early_termination
 
         super().__init__(
             robots=robots,
@@ -188,29 +195,36 @@ class Ultrasound(SingleArmEnv):
             float: reward value
         """
 
-        reward = 0. 
+        reward = 0.
+
+        total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
-        ee_desired_ori = convert_quat(self.examination_probe_orientation, to="wxyz")
+        ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
         
         ## Trajectory tracking ##
-        traj_pt = self.trajectory[self.steps_taken]
+        self.traj_pt = self.trajectory[self.timesteps]
 
-        pos_error = self.scale_pos_error * (np.power(traj_pt - self._eef_xpos, 2))
+        # pose error
+        pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
         self.pos_reward = np.sum(np.exp(-1 * pos_error))
 
-        ori_error = self.scale_ori_error * distance_quat(ee_desired_ori, ee_current_ori)
+        ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
         ori_error = np.array([ori_error])
-        self.ori_reward = np.sum(np.exp(-1 * ori_error))
+        self.ori_reward = np.exp(-1 * ori_error)
 
         # pose reward
-        #error_vec = np.concatenate((pos_error, ori_error))
         reward += self.pos_reward + self.ori_reward
 
-        # reward for probe touching torso
-        if self._check_probe_contact_with_upper_part_torso():
-            reward += 0.5
-        
+        # contact with torso
+        if self._check_probe_contact_with_torso():
+            # reward for contact
+            reward += 1
+
+            # penalty for using excessive force
+            if total_force_ee > self.contact_force_upper_threshold:
+                reward -= self.excess_force_penalty_mul * total_force_ee
+
         return reward
 
 
@@ -241,8 +255,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[-0.12, 0.12],
-                y_range=[-0.12, 0.12],
+                x_range=[0, 0], #[-0.12, 0.12],
+                y_range=[0, 0], #[-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -280,8 +294,11 @@ class Ultrasound(SingleArmEnv):
         observables = super()._setup_observables()
 
         self.trajectory = self._get_trajectory()    # Create trajectory here because reset function does not update torso pos
+        self.traj_pt = self.trajectory[self.timesteps]
 
         pf = self.robots[0].robot_model.naming_prefix
+
+        sensors = []
 
         # probe information
         modality = "probe"
@@ -295,20 +312,24 @@ class Ultrasound(SingleArmEnv):
             return self.robots[0].ee_torque
 
         @sensor(modality=modality)
-        def probe_ori_to_desired_quat(obs_cache):
-            return difference_quat(obs_cache[f"{pf}eef_quat"], self.examination_probe_orientation) if \
-                    f"{pf}eef_quat" in obs_cache else np.zeros(4)
+        def probe_to_goal_pose(obs_cache):
+            pos_error = obs_cache[f"{pf}eef_pos"] - self.traj_pt if f"{pf}eef_pos" in obs_cache else np.zeros(3)
+            quat_error = difference_quat(obs_cache[f"{pf}eef_quat"], self.goal_quat) if  f"{pf}eef_quat" in obs_cache else np.zeros(4)
+            pose_error = np.concatenate((pos_error, quat_error))
+            return pose_error
 
-        sensors = [probe_force, probe_torque, probe_ori_to_desired_quat]
-        
+        sensors += [probe_force, probe_torque, probe_to_goal_pose]
+
         # low-level object information
         if self.use_object_obs:
             modality = "object"
 
             @sensor(modality=modality)
             def torso_pos(obs_cache):
-                return self._torso_xpos
-
+                pos = self._torso_xpos
+                pos[-1] = pos[-1] + self.top_torso_offset + 0.02
+                return pos
+               
             @sensor(modality=modality)
             def torso_quat(obs_cache):
                 return convert_quat(np.array(self.sim.data.body_xquat[self.torso_body_id]), to="xyzw")
@@ -355,7 +376,7 @@ class Ultrasound(SingleArmEnv):
         self.ee_initial_pos = self._eef_xpos
 
         # initialize timer
-        self.steps_taken = 0          # Number of steps taken in the environment
+        self.timesteps = 0          # Number of steps taken in the environment
 
         # Override initial robot joint position (Used for trajectory tracking task)
         #if self.robots[0].name == "UR5e":
@@ -377,15 +398,16 @@ class Ultrasound(SingleArmEnv):
         """
         reward, done, info = super()._post_action(action)
         
-        # Increment steps_taken
-        self.steps_taken += 1
+        # Increment timesteps
+        self.timesteps += 1
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
             self.ee_force_bias = self.robots[0].ee_force
             self.ee_torque_bias = self.robots[0].ee_torque
 
-        done = done or self._check_terminated()
+        if self.early_termination:
+            done = done or self._check_terminated()
 
         return reward, done, info
 
@@ -408,9 +430,9 @@ class Ultrasound(SingleArmEnv):
         Returns:
             bool: True if probe touched upper part of torso for a given amount of time. 
         """ 
-        if self._check_probe_contact_with_torso():
+        if self._check_probe_contact_with_upper_part_torso():
             self.timer += 1
-            return self.timer >= self.timer_threshold
+            return self.timer >= self.timsteps_threshold
             
         self.timer = 0
         return False
@@ -421,10 +443,10 @@ class Ultrasound(SingleArmEnv):
         Check if the probe is in contact with the upper/top part of torso. Touching the torso on the sides should not count as contact.
 
         Returns:
-            bool: True if probe both is in contact with upper part of torso and inside dsitance threshold from the torso center.
+            bool: True if probe both is in contact with upper part of torso and inside distance threshold from the torso center.
         """     
         # check for contact only if probe is in contact with upper part and close to torso center
-        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.12:
+        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.14:
             return self._check_probe_contact_with_torso()
 
         return False
@@ -464,6 +486,7 @@ class Ultrasound(SingleArmEnv):
         Check if the task has completed one way or another. The following conditions lead to termination:
             - Collision with table
             - Joint Limit reached
+            - Deviates from trajectory
 
         Returns:
             bool: True if episode is terminated
@@ -481,14 +504,22 @@ class Ultrasound(SingleArmEnv):
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
             terminated = True
 
-        # Prematurely terminate if probe deviates away from trajectory
+        # Prematurely terminate if probe deviates away from trajectory (represented by a low position reward)
         if self.pos_reward < self.pos_reward_threshold:
             print(40 * '-' + " DEVIATES FROM TRAJECTORY " + 40 * '-')
             terminated = True
 
+        if self._check_probe_contact_with_torso():
+            # Be stricter with probe orientation when touching body
+            if self.ori_reward < 0.92:
+                print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
+                terminated = True
+
+            
+
         # Prematurely terminate if task is success
-       # if self._check_success():
-       #     print(40 * '+' + " TASK SUCCESS " + 40 * '+')
+        #if self._check_success():
+        #    print(40 * '+' + " TASK SUCCESS " + 40 * '+')
         #    terminated = True
 
         return terminated
