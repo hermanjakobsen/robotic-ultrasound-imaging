@@ -31,12 +31,35 @@ def get_policy_action(obs):
     low, high = env.action_spec
     return np.random.uniform(low, high)
 
-with open("rl_config.yaml", 'r') as stream:
-    config = yaml.safe_load(stream)
+env_id = "Ultrasound"
 
-# Environment specifications
-env_options = config["robosuite"]
-env_id = env_options.pop("env_id")
+env_options = {}
+env_options["robots"] = "UR5e"
+env_options["controller_configs"] = {
+    "type": "OSC_POSE",
+    "input_max": 1,
+    "input_min": -1,
+    "output_max": [0.05, 0.05, 0.05, 0.5, 0.5, 0.5],
+    "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
+    "kp": 150,
+    "damping_ratio": 1,
+    "impedance_mode": "fixed",
+    "kp_limits": [10, 300],
+    "damping_ratio_limits": [0, 2],
+    "position_limits": None,
+    "orientation_limits": None,
+    "uncouple_pos_ori": True,
+    "control_delta": True,
+    "interpolation": "linear",
+    "ramp_ratio": 0.2
+}
+env_options["control_freq"] = 100
+env_options["has_renderer"] = True
+env_options["has_offscreen_renderer"] = False
+env_options["render_camera"] = None
+env_options["use_camera_obs"] = False
+env_options["horizon"] = 400
+ 
 
 env = suite.make(env_id, **env_options)
 
@@ -46,11 +69,17 @@ obs = env.reset()
 done = False
 ret = 0.
 for t in range(env.horizon):
-    action = [0, 0, 0, -1, 0.5 ,0.2]         # use observation to decide on an action
+    action = [0, 0, 0, 0., 0 ,0]         # use observation to decide on an action
     obs, reward, done, _ = env.step(action) # play action
-    #print(obs)
+    eef_pos = obs["robot0_eef_pos"]
+    #print(f"eef: {eef_pos}")
+    #print(obs["probe_ori_to_desired"])
+    print(reward)
+    torso_pos = obs["torso_pos"]
     ret += reward
     env.render()
+    if t == 100:
+        env.reset()
 print("rollout completed with return {}".format(ret))
 
 ## Simulations

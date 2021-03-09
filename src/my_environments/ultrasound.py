@@ -14,7 +14,7 @@ from robosuite.utils.observables import Observable, sensor
 from my_models.objects import SoftTorsoObject, BoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
-from utils.quaternion import distance_quat
+from utils.quaternion import distance_quat, difference_quat
 
 
 class Ultrasound(SingleArmEnv):
@@ -91,6 +91,7 @@ class Ultrasound(SingleArmEnv):
         camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
             "camera names" param.
+        early_termination (bool): True if episode is allowed to finish early
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -102,7 +103,7 @@ class Ultrasound(SingleArmEnv):
         controller_configs=None,
         gripper_types="UltrasoundProbeGripper",
         initialization_noise="default",
-        table_full_size=(0.8, 0.8, 0.05),
+        table_full_size=100*(0.8, 0.8, 0.05),
         table_friction=(1., 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
@@ -123,6 +124,7 @@ class Ultrasound(SingleArmEnv):
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
+        early_termination=False,
     ):
         assert gripper_types =="UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -135,15 +137,27 @@ class Ultrasound(SingleArmEnv):
         # reward configuration
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
-        self.contact_force_upper_threshold = 60
-        self.contact_force_lower_threshold = 40
-        self.timer_threshold = 60                   # how many steps probe must be in contact with torso to yield success
+        self.contact_force_upper_threshold = 20
+        self.contact_force_lower_threshold = 0
+        self.pos_error_mul = 100
+        self.ori_error_mul = 0.2
+        self.pos_reward_threshold = 2.5
+        self.excess_force_penalty_mul = 0.05
+        self.timsteps_threshold = 30
+
+        # examination trajectory
+        self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
+        self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
+        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
 
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
         # object placement initializer
         self.placement_initializer = placement_initializer
+
+        # misc settings
+        self.early_termination = early_termination
 
         super().__init__(
             robots=robots,
@@ -168,7 +182,7 @@ class Ultrasound(SingleArmEnv):
             camera_widths=camera_widths,
             camera_depths=camera_depths,
         )
-
+        
 
     def reward(self, action=None):
         """
@@ -181,28 +195,35 @@ class Ultrasound(SingleArmEnv):
             float: reward value
         """
 
-        reward = 0. 
+        reward = 0.
 
         total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
-        dist_to_torso_center = np.linalg.norm(self._eef_xpos - self._torso_xpos)
-        ee_orientation = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
 
+        ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
+        ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
+        
+        ## Trajectory tracking ##
+        self.traj_pt = self.trajectory[self.timesteps]
 
-        # reward for probe touching torso
-        if self._check_probe_contact_with_upper_part_torso():
-            reward += 2.25
+        # pose error
+        pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
+        self.pos_reward = np.sum(np.exp(-1 * pos_error))
 
-        # reaching reward
-        reward += 1.5 * (1 - np.tanh(10.0 * dist_to_torso_center))
+        ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
+        ori_error = np.array([ori_error])
+        self.ori_reward = np.exp(-1 * ori_error)
 
-        # probe orientation penalty
-        ori_deviation = distance_quat(self.ee_inital_orientation, ee_orientation)
-        reward -= np.tanh(ori_deviation)
+        # pose reward
+        reward += self.pos_reward + self.ori_reward
 
-        # touching table penalty (will also end the episode)
-        if self._check_probe_contact_with_table():
-            return -100
+        # contact with torso
+        if self._check_probe_contact_with_torso():
+            # reward for contact
+            reward += 1
 
+            # penalty for using excessive force
+            if total_force_ee > self.contact_force_upper_threshold:
+                reward -= self.excess_force_penalty_mul * total_force_ee
 
         return reward
 
@@ -225,7 +246,6 @@ class Ultrasound(SingleArmEnv):
 
         # initialize objects of interest
         self.torso = SoftTorsoObject(name="torso")
-        #self.bed = HospitalBedObject(name="bed")
 
         # Create placement initializer
         if self.placement_initializer is not None:
@@ -235,8 +255,8 @@ class Ultrasound(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=[self.torso],
-                x_range=[-0.12, 0.12],
-                y_range=[-0.12, 0.12],
+                x_range=[0, 0], #[-0.12, 0.12],
+                y_range=[0, 0], #[-0.12, 0.12],
                 rotation=None,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -273,12 +293,15 @@ class Ultrasound(SingleArmEnv):
         """
         observables = super()._setup_observables()
 
+        self.trajectory = self._get_trajectory()    # Create trajectory here because reset function does not update torso pos
+        self.traj_pt = self.trajectory[self.timesteps]
+
+        pf = self.robots[0].robot_model.naming_prefix
+
+        sensors = []
+
         # probe information
         modality = "probe"
-
-        @sensor(modality=modality)
-        def probe_contact_with_upper_part_torso(obs_cache):
-            return self._check_probe_contact_with_upper_part_torso()
 
         @sensor(modality=modality)
         def probe_force(obs_cache):
@@ -288,21 +311,35 @@ class Ultrasound(SingleArmEnv):
         def probe_torque(obs_cache):
             return self.robots[0].ee_torque
 
-        sensors = [probe_contact_with_upper_part_torso, probe_force, probe_torque]
-        
+        @sensor(modality=modality)
+        def probe_to_goal_pose(obs_cache):
+            pos_error = obs_cache[f"{pf}eef_pos"] - self.traj_pt if f"{pf}eef_pos" in obs_cache else np.zeros(3)
+            quat_error = difference_quat(obs_cache[f"{pf}eef_quat"], self.goal_quat) if  f"{pf}eef_quat" in obs_cache else np.zeros(4)
+            pose_error = np.concatenate((pos_error, quat_error))
+            return pose_error
+
+        sensors += [probe_force, probe_torque, probe_to_goal_pose]
+
         # low-level object information
         if self.use_object_obs:
             modality = "object"
 
             @sensor(modality=modality)
             def torso_pos(obs_cache):
-                return self._torso_xpos
-
+                pos = self._torso_xpos
+                pos[-1] = pos[-1] + self.top_torso_offset + 0.02
+                return pos
+               
             @sensor(modality=modality)
             def torso_quat(obs_cache):
                 return convert_quat(np.array(self.sim.data.body_xquat[self.torso_body_id]), to="xyzw")
 
-            sensors += [torso_pos, torso_quat]
+            @sensor(modality=modality)
+            def probe_to_torso_pos(obs_cache):
+                return obs_cache[f"{pf}eef_pos"] - obs_cache["torso_pos"] if \
+                    f"{pf}eef_pos" in obs_cache and "torso_pos" in obs_cache else np.zeros(3)
+
+            sensors += [torso_pos, torso_quat, probe_to_torso_pos]
 
         names = [s.__name__ for s in sensors]
 
@@ -336,12 +373,14 @@ class Ultrasound(SingleArmEnv):
         # ee resets - bias at initial state
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
-
-        # probe resets - orientation at initial state
-        self.ee_inital_orientation = convert_quat(self._eef_xquat, to="wxyz")    # (w, x, y, z) quaternion
+        self.ee_initial_pos = self._eef_xpos
 
         # initialize timer
-        self.timer = 0
+        self.timesteps = 0          # Number of steps taken in the environment
+
+        # Override initial robot joint position (Used for trajectory tracking task)
+        #if self.robots[0].name == "UR5e":
+        #    self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
 
 
     def _post_action(self, action):
@@ -358,13 +397,17 @@ class Ultrasound(SingleArmEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
+        
+        # Increment timesteps
+        self.timesteps += 1
 
         # Update force bias
         if np.linalg.norm(self.ee_force_bias) == 0:
             self.ee_force_bias = self.robots[0].ee_force
             self.ee_torque_bias = self.robots[0].ee_torque
 
-        done = done or self._check_terminated()
+        if self.early_termination:
+            done = done or self._check_terminated()
 
         return reward, done, info
 
@@ -387,9 +430,9 @@ class Ultrasound(SingleArmEnv):
         Returns:
             bool: True if probe touched upper part of torso for a given amount of time. 
         """ 
-        if self._check_probe_contact_with_torso():
+        if self._check_probe_contact_with_upper_part_torso():
             self.timer += 1
-            return self.timer >= self.timer_threshold
+            return self.timer >= self.timsteps_threshold
             
         self.timer = 0
         return False
@@ -400,10 +443,10 @@ class Ultrasound(SingleArmEnv):
         Check if the probe is in contact with the upper/top part of torso. Touching the torso on the sides should not count as contact.
 
         Returns:
-            bool: True if probe both is in contact with upper part of torso and inside dsitance threshold from the torso center.
+            bool: True if probe both is in contact with upper part of torso and inside distance threshold from the torso center.
         """     
         # check for contact only if probe is in contact with upper part and close to torso center
-        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.12:
+        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.14:
             return self._check_probe_contact_with_torso()
 
         return False
@@ -443,6 +486,7 @@ class Ultrasound(SingleArmEnv):
         Check if the task has completed one way or another. The following conditions lead to termination:
             - Collision with table
             - Joint Limit reached
+            - Deviates from trajectory
 
         Returns:
             bool: True if episode is terminated
@@ -458,14 +502,110 @@ class Ultrasound(SingleArmEnv):
         # Prematurely terminate if reaching joint limits
         if self.robots[0].check_q_limits():
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
-            #terminated = True
+            terminated = True
+
+        # Prematurely terminate if probe deviates away from trajectory (represented by a low position reward)
+        if self.pos_reward < self.pos_reward_threshold:
+            print(40 * '-' + " DEVIATES FROM TRAJECTORY " + 40 * '-')
+            terminated = True
+
+        if self._check_probe_contact_with_torso():
+            # Be stricter with probe orientation when touching body
+            if self.ori_reward < 0.92:
+                print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
+                terminated = True
+
+            
 
         # Prematurely terminate if task is success
-       # if self._check_success():
-       #     print(40 * '+' + " TASK SUCCESS " + 40 * '+')
+        #if self._check_success():
+        #    print(40 * '+' + " TASK SUCCESS " + 40 * '+')
         #    terminated = True
 
         return terminated
+
+
+    def _calculate_line(self, start_pos, end_pos, n_pts):
+        """
+        Calculates a line between two points in 3D-space.
+
+        Args:
+            start_pos (np.array): start position for line (x,y,z)
+            end_pos (np.array): end position for line (x,y,z)
+            n_pts (int): number of points making up the line
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        assert n_pts > 1, "The number of points must be atleast 2"
+
+        line_pts = np.zeros((n_pts, 3))
+
+        dir_vec = np.array([
+            end_pos[0] - start_pos[0], 
+            end_pos[1] - start_pos[1], 
+            end_pos[2] - start_pos[2]
+            ])
+
+        for i in range(n_pts):
+            t = 1 / (n_pts-1) * i
+            point = np.array([
+                start_pos[0] + dir_vec[0] * t, 
+                start_pos[1] + dir_vec[1] * t,
+                start_pos[2] + dir_vec[2] * t
+                ])
+            line_pts[i] = point
+
+        return line_pts
+
+    
+    def _get_examination_trajectory(self):
+        """
+        Calculates the examination trajectory along the torso. The trajectory is calculated as a line 
+        between the start and end position in the xy-plane.
+
+        Args:
+            n_pts (int): number of points along the trajectory
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """     
+        n_pts = np.ceil(self.horizon / 2).astype(int)
+        return self._calculate_line(self._examination_start_xpos, self._examination_end_xpos, n_pts)
+
+
+    def _get_inital_pos_to_torso_trajectory(self):
+        """
+        Calculates the trajectory from the probe's initial position to examination start position on the torso. The trajectory is calculated as a line 
+        in 3D-space.
+
+        Args:
+            n_pts (int): number of points along the trajectory
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        n_pts = np.floor(self.horizon / 2).astype(int)
+        return self._calculate_line(self.ee_initial_pos, self._examination_start_xpos, n_pts)
+        
+    
+    def _get_trajectory(self):
+        """
+        Calculates the trajectory from the probe's initial position to examination end position on the torso. The trajectory consists of two lines 
+        in 3D-space. The first line goes from the probe's initial position to the examination start position on the torso. The second line goes from the 
+        examination start position to the end position, along the torso. 
+
+        Args:
+
+        Returns:
+            [np.array]:  trajectory points (x,y,z)
+        """
+        to_torso_traj = self._get_inital_pos_to_torso_trajectory()
+        examination_traj = self._get_examination_trajectory()
+
+        trajectory = np.concatenate((to_torso_traj, examination_traj))
+        
+        return trajectory
 
 
     @property
@@ -476,4 +616,47 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        return np.array(self.sim.data.get_body_xpos(self.torso.root_body))
+        return np.array(self.sim.data.body_xpos[self.torso_body_id])
+
+
+    @property
+    def _examination_start_xpos(self):
+        """
+        Grabs start position for ultrasound examination
+
+        Returns:
+            np.array: start pos (x,y,z)
+
+        NOTE This function has several shortcomings:
+            - The overall size of the torso is not known, hence hard-coded values must be used. 
+            - The numeric values used in the function have been found through testing, and are prone to:
+                * Changes in the torso size.
+                * Rotation of the torso.
+        """
+        pos_x = self._torso_xpos[0] - self.traj_x_offset / 2
+        pos_y = self._torso_xpos[1]
+        pos_z = self._torso_xpos[2] + self.top_torso_offset
+
+        return np.array([pos_x, pos_y, pos_z])
+    
+
+    @property
+    def _examination_end_xpos(self):
+        """
+        Grabs end position for ultrasound examination
+
+        Returns:
+            np.array: end pos (x,y,z)
+
+        NOTE This function has several shortcomings:
+            - The overall size of the torso is not known, hence hard-coded values must be used. 
+            - The numeric values used in the function have been found through testing, and are prone to:
+                * Changes in the torso size.
+                * Rotation of the torso.
+        """
+        pos_x = self._torso_xpos[0] + self.traj_x_offset / 2
+        pos_y = self._torso_xpos[1]
+        pos_z = self._torso_xpos[2] + self.top_torso_offset
+
+        return np.array([pos_x, pos_y, pos_z])
+    
