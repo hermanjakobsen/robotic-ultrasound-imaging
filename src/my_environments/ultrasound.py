@@ -2,8 +2,11 @@ from collections import OrderedDict
 import numpy as np
 import re
 from klampt.model import trajectory
+import roboticstoolbox as rtb
 
-from robosuite.utils.transform_utils import convert_quat
+from spatialmath import SE3
+
+from robosuite.utils.transform_utils import convert_quat, quat2mat, mat2euler
 from robosuite.utils.mjcf_utils import CustomMaterial
 
 from robosuite.environments.manipulation.single_arm_env import SingleArmEnv
@@ -127,8 +130,11 @@ class Ultrasound(SingleArmEnv):
         camera_depths=False,
         early_termination=False,
     ):
-        assert gripper_types =="UltrasoundProbeGripper",\
+        assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
+
+        assert robots == "UR5e" or robots == "Panda", \
+            "Robot must be UR5e or Panda!"
 
         # settings for table top
         self.table_full_size = table_full_size
@@ -381,9 +387,12 @@ class Ultrasound(SingleArmEnv):
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
 
+        # get initial joint positions for robot
+        init_qpos = self._get_initial_qpos()
+
         # Override initial robot joint position (Used for trajectory tracking task)
-        #if self.robots[0].name == "UR5e":
-        #    self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = np.array([-0.377, -1.357, 2.489, -2.679, -1.571, -0.344])
+        self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = init_qpos
+
 
 
 
@@ -533,6 +542,7 @@ class Ultrasound(SingleArmEnv):
 
         return terminated
     
+
     def _get_trajectory(self):
         """
         Calculates a trajectory using three waypoints; probe initial position, the examination start position on the torso and the 
@@ -549,6 +559,50 @@ class Ultrasound(SingleArmEnv):
 
         return trajectory.Trajectory(milestones=milestones)
 
+    
+    def _get_initial_qpos(self):
+        """
+        Calculates the initial joint position for the robot based on the initial desired pose (self.traj_pt, self.goal_quat).
+
+        Args:
+
+        Returns:
+            (np.array): n joint positions 
+        """
+        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0, 1.2]))
+        ori_euler = mat2euler(quat2mat(self.goal_quat))
+
+        # find initial joint positions
+        T = SE3(test_pos) * SE3.RPY(ori_euler, order="xyz")
+
+        if self.robots[0].name == "UR5e":
+            robot = rtb.models.DH.UR5()
+        elif self.robots[0].name == "Panda":
+            robot = rtb.models.DH.Panda()
+
+        sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
+        return sol.q
+
+
+    def _convert_robosuite_to_toolbox_xpos(self, pos):
+        """
+        Converts origin used in robosuite to origin used for robotics toolbox. Also transforms robosuite world frame (vectors x, y, z) to
+        to correspond to world frame used in toolbox.
+
+        Args:
+            pos (np.array): position (x,y,z) given in robosuite coordinates and frame 
+
+        Returns:
+            (np.array):  position (x,y,z) given in robotics toolbox coordinates and frame
+        """
+        xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])[0]
+        zpos_offset = self.robots[0].robot_model.top_offset[-1]
+
+        if self.robots[0].name == "UR5e":
+            return np.array([-pos[0] + xpos_offset, -pos[1], pos[2] - zpos_offset]) 
+
+        if self.robots[0].name == "Panda":
+            return np.array([pos[0] - xpos_offset, pos[1], pos[2] - zpos_offset]) 
 
     @property
     def _torso_xpos(self):
@@ -558,8 +612,12 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        #np.array(self.sim.data.body_xpos[self.torso_body_id])
-        return self.sim.data.qpos[[6, 7, 8]]
+        #return np.array(self.sim.data.body_xpos[self.torso_body_id])   # Better solution. Does now work due to how the position is reset with placement initializer
+
+        if self.robots[0].name == "UR5e":
+            return self.sim.data.qpos[[6, 7, 8]]
+        if self.robots[0].name == "Panda":
+            return self.sim.data.qpos[[7, 8, 9]]
 
 
     @property
