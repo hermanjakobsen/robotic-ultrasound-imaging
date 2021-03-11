@@ -569,17 +569,18 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (np.array): n joint positions 
         """
-        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0, 1.2]))
+        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0, 1]))
         ori_euler = mat2euler(quat2mat(self.goal_quat))
 
-        # find initial joint positions
-        T = SE3(test_pos) * SE3.RPY(ori_euler, order="xyz")
+        # desired pose
+        T = SE3(test_pos) * SE3.RPY(ori_euler)
 
         if self.robots[0].name == "UR5e":
             robot = rtb.models.DH.UR5()
         elif self.robots[0].name == "Panda":
             robot = rtb.models.DH.Panda()
 
+        # find initial joint positions
         sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
         return sol.q
 
