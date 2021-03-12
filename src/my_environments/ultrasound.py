@@ -569,7 +569,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (np.array): n joint positions 
         """
-        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0, 1]))
+        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0.1, 1.1]))
         ori_euler = mat2euler(quat2mat(self.goal_quat))
 
         # desired pose
@@ -599,11 +599,13 @@ class Ultrasound(SingleArmEnv):
         xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])[0]
         zpos_offset = self.robots[0].robot_model.top_offset[-1]
 
+        # the numeric offset values have been found empirically, where they are chosen so that 
+        # self._eef_xpos matches the desired position.
         if self.robots[0].name == "UR5e":
-            return np.array([-pos[0] + xpos_offset, -pos[1], pos[2] - zpos_offset]) 
+            return np.array([-pos[0] + xpos_offset - 0.05, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
 
         if self.robots[0].name == "Panda":
-            return np.array([pos[0] - xpos_offset, pos[1], pos[2] - zpos_offset]) 
+            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.11])
 
     @property
     def _torso_xpos(self):
