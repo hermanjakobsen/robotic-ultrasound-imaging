@@ -287,7 +287,6 @@ class Ultrasound(SingleArmEnv):
         self.torso_body_id = self.sim.model.body_name2id(self.torso.root_body)
         
 
-
     def _setup_observables(self):
         """
         Sets up observables to be used for this environment. Creates object-based observables if enabled
@@ -527,18 +526,10 @@ class Ultrasound(SingleArmEnv):
             print(40 * '-' + " DEVIATES FROM TRAJECTORY " + 40 * '-')
             terminated = True
 
-        if self._check_probe_contact_with_torso():
-            # Be stricter with probe orientation when touching body
-            if self.ori_reward < 0.92:
-                print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
-                terminated = True
-
-            
-
-        # Prematurely terminate if task is success
-        #if self._check_success():
-        #    print(40 * '+' + " TASK SUCCESS " + 40 * '+')
-        #    terminated = True
+        # Prematurely terminate if probe deviates from desired orientation when touching probe
+        if self._check_probe_contact_with_torso() and self.ori_reward < 0.92::
+            print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
+            terminated = True
 
         return terminated
     
