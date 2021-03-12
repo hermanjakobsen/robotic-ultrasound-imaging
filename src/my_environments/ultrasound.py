@@ -527,7 +527,7 @@ class Ultrasound(SingleArmEnv):
             terminated = True
 
         # Prematurely terminate if probe deviates from desired orientation when touching probe
-        if self._check_probe_contact_with_torso() and self.ori_reward < 0.92::
+        if self._check_probe_contact_with_torso() and self.ori_reward < 0.92:
             print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
             terminated = True
 
