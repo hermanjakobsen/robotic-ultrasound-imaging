@@ -147,6 +147,7 @@ class Ultrasound(SingleArmEnv):
         self.contact_force_upper_threshold = 20
         self.contact_force_lower_threshold = 0
         self.pos_error_mul = 100
+        self.vel_error_mul = 1
         self.ori_error_mul = 0.2
         self.pos_reward_threshold = 2.6
         self.excess_force_penalty_mul = 0.05
@@ -203,7 +204,7 @@ class Ultrasound(SingleArmEnv):
         """
         
         reward = 0.
-        
+
         total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
@@ -211,17 +212,20 @@ class Ultrasound(SingleArmEnv):
         
         ## Trajectory tracking ##
         self.traj_pt = self.trajectory.eval(self.traj_step)
+        traj_pt_vel = self.trajectory.deriv(self.traj_step)
 
         # pose error
         pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
         self.pos_reward = np.sum(np.exp(-1 * pos_error))
 
         ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
-        ori_error = np.array([ori_error])
         self.ori_reward = np.exp(-1 * ori_error)
 
         # pose reward
         reward += self.pos_reward + self.ori_reward
+
+        # velocity error
+        vel_error = self.vel_error_mul
 
         # contact with torso
         if self._check_probe_contact_with_torso():
@@ -318,7 +322,8 @@ class Ultrasound(SingleArmEnv):
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        sensors += [probe_force, probe_torque, probe_to_goal_pose]
+        #sensors += [probe_force, probe_torque, probe_to_goal_pose]
+        sensors += [probe_to_goal_pose]
 
         # low-level object information
         if self.use_object_obs:
@@ -369,14 +374,17 @@ class Ultrasound(SingleArmEnv):
             # Loop through all objects and reset their positions
             for obj_pos, _, obj in object_placements.values():
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
+                self.sim.forward()      # update sim states
                 
         # ee resets - bias at initial state
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
+
+        # inital position of eef
         self.ee_initial_pos = self._eef_xpos
 
         # create trajectory
-        self.trajectory = self._get_trajectory()            # Be aware of position update bug for torso
+        self.trajectory = self._get_trajectory()
 
         # initialize timestep
         self.timestep = 0                                                          # number of steps taken in episode
@@ -389,8 +397,8 @@ class Ultrasound(SingleArmEnv):
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
 
-        # override initial robot joint position (Used for trajectory tracking task)
-        self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = init_qpos
+        # override initial robot joint positions
+        self.robots[0].set_robot_joint_positions(init_qpos)
 
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
@@ -503,7 +511,8 @@ class Ultrasound(SingleArmEnv):
         Check if the task has completed one way or another. The following conditions lead to termination:
             - Collision with table
             - Joint Limit reached
-            - Deviates from trajectory
+            - Deviates from trajectory position
+            - Deviates from desired orientation when in contact with torso
 
         Returns:
             bool: True if episode is terminated
@@ -612,12 +621,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             np.array: torso pos (x,y,z)
         """
-        #return np.array(self.sim.data.body_xpos[self.torso_body_id])   # Better solution. Does now work due to how the position is reset with placement initializer
-
-        if self.robots[0].name == "UR5e":
-            return self.sim.data.qpos[[6, 7, 8]]
-        if self.robots[0].name == "Panda":
-            return self.sim.data.qpos[[7, 8, 9]]
+        return np.array(self.sim.data.body_xpos[self.torso_body_id]) 
 
 
     @property
@@ -661,3 +665,7 @@ class Ultrasound(SingleArmEnv):
 
         return np.array([pos_x, pos_y, pos_z])
     
+
+    @property
+    def _eef_xvel(self):
+        return 0
