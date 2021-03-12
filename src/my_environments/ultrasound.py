@@ -201,7 +201,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             float: reward value
         """
-
+        
         reward = 0.
         
         total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
@@ -390,11 +390,11 @@ class Ultrasound(SingleArmEnv):
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
 
-        # Override initial robot joint position (Used for trajectory tracking task)
+        # override initial robot joint position (Used for trajectory tracking task)
         self.sim.data.qpos[self.robots[0]._ref_joint_pos_indexes] = init_qpos
 
-
-
+        # update controller with new initial joints
+        self.robots[0].controller.update_initial_joints(init_qpos)
 
 
     def _post_action(self, action):
@@ -569,20 +569,25 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (np.array): n joint positions 
         """
-        test_pos = self._convert_robosuite_to_toolbox_xpos(np.array([0.2, 0.1, 1.1]))
+        pos = self._convert_robosuite_to_toolbox_xpos(self.traj_pt)
         ori_euler = mat2euler(quat2mat(self.goal_quat))
 
         # desired pose
-        T = SE3(test_pos) * SE3.RPY(ori_euler)
-
-        if self.robots[0].name == "UR5e":
-            robot = rtb.models.DH.UR5()
-        elif self.robots[0].name == "Panda":
-            robot = rtb.models.DH.Panda()
+        T = SE3(pos) * SE3.RPY(ori_euler)
 
         # find initial joint positions
-        sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
-        return sol.q
+        if self.robots[0].name == "UR5e":
+            robot = rtb.models.DH.UR5()
+            sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
+
+            # flip last joint around (pi)
+            sol.q[-1] -= np.pi
+            return sol.q
+
+        elif self.robots[0].name == "Panda":
+            robot = rtb.models.DH.Panda()
+            sol = robot.ikine_min(T, q0=self.robots[0].init_qpos)
+            return sol.q
 
 
     def _convert_robosuite_to_toolbox_xpos(self, pos):
@@ -602,10 +607,11 @@ class Ultrasound(SingleArmEnv):
         # the numeric offset values have been found empirically, where they are chosen so that 
         # self._eef_xpos matches the desired position.
         if self.robots[0].name == "UR5e":
-            return np.array([-pos[0] + xpos_offset - 0.05, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
+            return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
 
         if self.robots[0].name == "Panda":
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.11])
+
 
     @property
     def _torso_xpos(self):
