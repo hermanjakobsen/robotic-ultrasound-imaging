@@ -154,7 +154,7 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.036   # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.046   # offset from z_center of torso to top of torso
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
 
         # whether to use ground-truth object states
