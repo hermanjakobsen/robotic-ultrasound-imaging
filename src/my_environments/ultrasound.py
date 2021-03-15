@@ -216,8 +216,6 @@ class Ultrasound(SingleArmEnv):
         # rewards
         reward += self.pos_reward + self.ori_reward + self.vel_reward
 
-        print(reward)
-
         # contact with torso
         if self._check_probe_contact_with_torso():
             # reward for contact
