@@ -132,6 +132,8 @@ class Ultrasound(SingleArmEnv):
         self.sigma = 0.01
 
         # reward configuration 
+        self.reward_scale = reward_scale
+        self.reward_shaping = reward_shaping
         self.contact_force_upper_threshold = 20
         self.contact_force_lower_threshold = 0
         self.pos_error_mul = 100
