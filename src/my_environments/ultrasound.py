@@ -134,20 +134,20 @@ class Ultrasound(SingleArmEnv):
         # reward configuration 
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
-        self.contact_force_upper_threshold = 20
-        self.contact_force_lower_threshold = 0
         self.pos_error_mul = 100
-        self.vel_error_mul = 5
         self.ori_error_mul = 0.2
+        self.vel_error_mul = 5
+        self.force_error_mul = 0.75
         self.pos_reward_threshold = 2.6
         self.excess_force_penalty_mul = 0.05
         self.timsteps_threshold = 30
+        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting
+        self.goal_contact_force= 6.5     # (N)  
 
         # examination trajectory
-        self.traj_x_offset = 0.17       # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.046   # offset from z_center of torso to top of torso
-        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909])  # Upright probe orientation found from experimenting
-
+        self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
+        self.top_torso_offset = 0.046     # offset from z_center of torso to top of torso
+                                            
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
 
@@ -195,7 +195,7 @@ class Ultrasound(SingleArmEnv):
         
         reward = 0.
 
-        total_force_ee = np.linalg.norm(np.array(self.robots[0].recent_ee_forcetorques.current[:3]))
+        total_force_ee = np.linalg.norm(self.robots[0].ee_force)
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
@@ -204,25 +204,28 @@ class Ultrasound(SingleArmEnv):
         self.traj_pt = self.trajectory.eval(self.traj_step)
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
 
-        # pose error
+        # pose reward
         pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
         self.pos_reward = np.sum(np.exp(-1 * pos_error))
 
         ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
         self.ori_reward = np.exp(-1 * ori_error)
 
-        # velocity error
+        # velocity reward
         vel_error = self.vel_error_mul * (np.power(self.robots[0]._hand_vel - self.traj_pt_vel, 2))
         self.vel_reward = np.sum(np.exp(-1 * vel_error))
 
-        # rewards
         reward += self.pos_reward + self.ori_reward + self.vel_reward
 
         # contact with torso
         if self._check_probe_contact_with_torso():
-            # reward for contact
-            reward += 1
-        
+
+            # force reward
+            force_error = self.force_error_mul * (np.power(total_force_ee - self.goal_contact_force, 2))
+            self.force_reward = np.exp(-1 * force_error)
+
+            reward += self.force_reward
+
         return reward
 
 
@@ -321,7 +324,7 @@ class Ultrasound(SingleArmEnv):
         def probe_to_goal_vel(obs_cache):
             return obs_cache["probe_vel"] - self.traj_pt_vel if "probe_vel" in obs_cache else np.zeros(3)
 
-        sensors += [probe_vel, probe_to_goal_pose, probe_to_goal_vel]
+        sensors += [probe_vel, probe_force, probe_torque, probe_to_goal_pose, probe_to_goal_vel]
 
         # low-level object information
         if self.use_object_obs:
