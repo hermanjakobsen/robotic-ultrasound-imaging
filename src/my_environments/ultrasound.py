@@ -40,26 +40,12 @@ class Ultrasound(SingleArmEnv):
             with the robot(s) the 'robots' specification. None removes the gripper, and any other (valid) model
             overrides the default gripper. Should either be single str if same gripper type is to be used for all
             robots or else it should be a list of the same length as "robots" param
-        initialization_noise (dict or list of dict): Dict containing the initialization noise parameters.
-            The expected keys and corresponding value types are specified below:
-            :`'magnitude'`: The scale factor of uni-variate random noise applied to each of a robot's given initial
-                joint positions. Setting this value to `None` or 0.0 results in no noise being applied.
-                If "gaussian" type of noise is applied then this magnitude scales the standard deviation applied,
-                If "uniform" type of noise is applied then this magnitude sets the bounds of the sampling range
-            :`'type'`: Type of noise to apply. Can either specify "gaussian" or "uniform"
-            Should either be single dict if same noise value is to be used for all robots or else it should be a
-            list of the same length as "robots" param
-            :Note: Specifying "default" will automatically use the default noise settings.
-                Specifying None will automatically create the required dict with "magnitude" set to 0.0.
         table_full_size (3-tuple): x, y, and z dimensions of the table.
         table_friction (3-tuple): the three mujoco friction parameters for
             the table.
         use_camera_obs (bool): if True, every observation includes rendered image(s)
         use_object_obs (bool): if True, include object (cube) information in
             the observation.
-        reward_scale (None or float): Scales the normalized reward function by the amount specified.
-            If None, environment reward remains unnormalized
-        reward_shaping (bool): if True, use dense rewards.
         placement_initializer (ObjectPositionSampler): if provided, will
             be used to place objects on every reset, else a UniformRandomSampler
             is used by default.
@@ -95,7 +81,7 @@ class Ultrasound(SingleArmEnv):
         camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
             "camera names" param.
-        early_termination (bool): True if episode is allowed to finish early
+        early_termination (bool): True if episode is allowed to finish early.
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -107,8 +93,8 @@ class Ultrasound(SingleArmEnv):
         controller_configs=None,
         gripper_types="UltrasoundProbeGripper",
         initialization_noise="default",
-        table_full_size=100*(0.8, 0.8, 0.05),
-        table_friction=(1., 5e-3, 1e-4),
+        table_full_size=(0.8, 0.8, 0.05),
+        table_friction=100*(1., 5e-3, 1e-4),
         use_camera_obs=True,
         use_object_obs=True,
         reward_scale=1.0,
@@ -141,13 +127,15 @@ class Ultrasound(SingleArmEnv):
         self.table_friction = table_friction
         self.table_offset = np.array((0, 0, 0.8))
 
-        # reward configuration
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
+        # settings for joint initialization noise
+        self.mu = 0
+        self.sigma = 0.01
+
+        # reward configuration 
         self.contact_force_upper_threshold = 20
         self.contact_force_lower_threshold = 0
         self.pos_error_mul = 100
-        self.vel_error_mul = 1
+        self.vel_error_mul = 5
         self.ori_error_mul = 0.2
         self.pos_reward_threshold = 2.6
         self.excess_force_penalty_mul = 0.05
@@ -173,7 +161,7 @@ class Ultrasound(SingleArmEnv):
             controller_configs=controller_configs,
             mount_types="default",
             gripper_types=gripper_types,
-            initialization_noise=initialization_noise,
+            initialization_noise=None,
             use_camera_obs=use_camera_obs,
             has_renderer=has_renderer,
             has_offscreen_renderer=has_offscreen_renderer,
@@ -212,7 +200,7 @@ class Ultrasound(SingleArmEnv):
         
         ## Trajectory tracking ##
         self.traj_pt = self.trajectory.eval(self.traj_step)
-        traj_pt_vel = self.trajectory.deriv(self.traj_step)
+        self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
 
         # pose error
         pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
@@ -221,11 +209,14 @@ class Ultrasound(SingleArmEnv):
         ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
         self.ori_reward = np.exp(-1 * ori_error)
 
-        # pose reward
-        reward += self.pos_reward + self.ori_reward
-
         # velocity error
-        vel_error = self.vel_error_mul
+        vel_error = self.vel_error_mul * (np.power(self.robots[0]._hand_vel - self.traj_pt_vel, 2))
+        self.vel_reward = np.sum(np.exp(-1 * vel_error))
+
+        # rewards
+        reward += self.pos_reward + self.ori_reward + self.vel_reward
+
+        print(reward)
 
         # contact with torso
         if self._check_probe_contact_with_torso():
@@ -316,14 +307,21 @@ class Ultrasound(SingleArmEnv):
             return self.robots[0].ee_torque
 
         @sensor(modality=modality)
+        def probe_vel(obs_cache):
+            return self.robots[0]._hand_vel
+
+        @sensor(modality=modality)
         def probe_to_goal_pose(obs_cache):
             pos_error = obs_cache[f"{pf}eef_pos"] - self.traj_pt if f"{pf}eef_pos" in obs_cache else np.zeros(3)
             quat_error = difference_quat(obs_cache[f"{pf}eef_quat"], self.goal_quat) if  f"{pf}eef_quat" in obs_cache else np.zeros(4)
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        #sensors += [probe_force, probe_torque, probe_to_goal_pose]
-        sensors += [probe_to_goal_pose]
+        @sensor(modality=modality)
+        def probe_to_goal_vel(obs_cache):
+            return obs_cache["probe_vel"] - self.traj_pt_vel if "probe_vel" in obs_cache else np.zeros(3)
+
+        sensors += [probe_vel, probe_to_goal_pose, probe_to_goal_vel]
 
         # low-level object information
         if self.use_object_obs:
@@ -380,11 +378,11 @@ class Ultrasound(SingleArmEnv):
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
 
-        # inital position of eef
+        # initial quantities of eef
         self.ee_initial_pos = self._eef_xpos
 
         # create trajectory
-        self.trajectory = self._get_trajectory()
+        self.trajectory = self.get_trajectory()
 
         # initialize timestep
         self.timestep = 0                                                          # number of steps taken in episode
@@ -393,9 +391,11 @@ class Ultrasound(SingleArmEnv):
 
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
+        self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
 
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
+        init_qpos = self._add_noise_to_qpos(init_qpos, self.mu, self.sigma)
 
         # override initial robot joint positions
         self.robots[0].set_robot_joint_positions(init_qpos)
@@ -543,7 +543,7 @@ class Ultrasound(SingleArmEnv):
         return terminated
     
 
-    def _get_trajectory(self):
+    def get_trajectory(self):
         """
         Calculates a trajectory using three waypoints; probe initial position, the examination start position on the torso and the 
         examination end position on the torso. The probe initial position is given at time t=0, the examination start position at t=1 and the 
@@ -613,6 +613,22 @@ class Ultrasound(SingleArmEnv):
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.11])
 
 
+    def _add_noise_to_qpos(self, qpos, mu, sigma):
+        """
+        Adds Gaussian noise (variance) to the joint positions.
+
+        Args:
+            qpos (np.array): joint positions 
+            mu (float): mean (“centre”) of the distribution
+            sigma (float): standard deviation (spread or “width”) of the distribution. Must be non-negative
+
+        Returns:
+            (np.array):  joint positions with added noise
+        """
+        noise = np.random.normal(mu, sigma, qpos.size)
+        return qpos + noise
+
+
     @property
     def _torso_xpos(self):
         """
@@ -665,7 +681,3 @@ class Ultrasound(SingleArmEnv):
 
         return np.array([pos_x, pos_y, pos_z])
     
-
-    @property
-    def _eef_xvel(self):
-        return 0
