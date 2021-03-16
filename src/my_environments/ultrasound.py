@@ -452,17 +452,6 @@ class Ultrasound(SingleArmEnv):
 
 
     def _check_success(self):
-        """
-        Check if the probe is in contact with the upper/top part of torso for a given amount of time.
-
-        Returns:
-            bool: True if probe touched upper part of torso for a given amount of time. 
-        """ 
-        if self._check_probe_contact_with_upper_part_torso():
-            self.timer += 1
-            return self.timer >= self.timsteps_threshold
-            
-        self.timer = 0
         return False
 
 
