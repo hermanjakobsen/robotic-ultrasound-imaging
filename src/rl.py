@@ -13,7 +13,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, SubprocV
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, CheckpointCallback
 
 from my_models.grippers import UltrasoundProbeGripper
 from my_environments import Ultrasound, FetchPush
@@ -72,6 +72,7 @@ if __name__ == '__main__':
     # Settings for stable-baselines RL algorithm
     sb_config = config["sb_config"]
     training_timesteps = sb_config["total_timesteps"]
+    check_pt_interval = sb_config["check_pt_interval"]
     num_cpu = sb_config["num_cpu"]
 
     # Settings for stable-baselines policy
@@ -104,11 +105,15 @@ if __name__ == '__main__':
         env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
         env = VecNormalize(env)
 
+        # Create callback
+        checkpoint_callback = CheckpointCallback(save_freq=check_pt_interval, save_path='./checkpoints/', 
+                                name_prefix=save_model_filename, verbose=2)
+
         # Create model
         model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
        
         # Training
-        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name)
+        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback)
 
         # Save trained model
         model.save(save_model_path)
