@@ -6,7 +6,6 @@ Download [MuJoCo 2.0](https://www.roboti.us/index.html) and unzip its contents i
 ```
 ~/.mujoco
 │   mjkey.txt   
-│    
 └───mujoco200
 │   │   bin
 │   │   doc
@@ -18,12 +17,21 @@ Lastly, add the following line to the bottom of `~/.bashrc`
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<path_to_home>/.mujoco/mujoco200/bin
 ```
-Note that if you are going to use a GPU to train RL agents, the `patchelf` package is needed for installing `mujoco-py`
+## Virtual environment
+To avoid package conflicts, it is smart to create a virtual environment. It is possible to create a virtual environment using either pip or conda. Some packages require additional system dependencies, as stated in the "Notes" section. 
+
+## Conda
+First, follow the [guidelines](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) on how to install Miniconda. The virtual environment can then be created by running 
 ```
-sudo apt-get install -y patchelf
+conda env create -f conda.yaml
 ```
-## Using pip
-To avoid package conflictions, it is smart to create a virtual environment. Run the following command to set up a virtual environment
+To activate the virtual environment, run 
+```
+conda activate rl_ultrasound
+```
+
+## Pip
+Run the following command to set up a virtual environment
 ```
 sudo apt install python-virtualenv
 
@@ -38,14 +46,18 @@ The required packages can then be installed with
 pip3 install wheel  
 pip3 install -r requirements.txt
 ```
-NOTE: The `mujoco-py` package may require additional system dependencies. The full installation process for this package can be found [here](https://github.com/openai/mujoco-py).
+## Notes
+The `mujoco-py` package may require additional system dependencies. The full installation process for this package can be found [here](https://github.com/openai/mujoco-py). For instance, if you are going to use a GPU to train RL agents, the `patchelf` package is needed for installing `mujoco-py`:
+```
+sudo apt-get install -y patchelf
+```
 
  # Train and run an RL agent
- It is possible to train an RL agent to perform the ultrasound task, where the framework has been integrated with the algorithms from [stable-baselines](https://github.com/DLR-RM/stable-baselines3). Different settings (e.g. object observations and controller specifications) can be specified in `rl_config.yaml`. Note that the config file is not complete, hence there exists numerous of other settings and hyperparameters that are not specifed in the file. For these parameters, the default values are used. 
+ It is possible to train an RL agent to perform the ultrasound task, where the framework has been integrated with the RL algorithms from [stable-baselines](https://github.com/DLR-RM/stable-baselines3). Different settings (e.g. object observations and controller specifications) can be specified in `rl_config.yaml`. Note that the config file is not complete, hence there exists numerous of other settings and hyperparameters that are not specifed in the file. For these parameters, the default values are used. 
 
  To train (or run) an agent, it is as simple as running
  ```
-python3 rl.py
+ python3 rl.py
  ``` 
  Whether to train an agent, or evaluate a trained agent, is specified in `rl_config.yaml`.
 
