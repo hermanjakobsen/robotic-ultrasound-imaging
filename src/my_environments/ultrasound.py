@@ -313,8 +313,8 @@ class Ultrasound(SingleArmEnv):
         modality = "probe"
 
         @sensor(modality=modality)
-        def probe_force(obs_cache):
-            return self.robots[0].ee_force
+        def probe_contact_force(obs_cache):
+            return self.sim.data.cfrc_ext[self.probe_id][-3:]
 
         @sensor(modality=modality)
         def probe_torque(obs_cache):
@@ -335,7 +335,7 @@ class Ultrasound(SingleArmEnv):
         def probe_to_goal_vel(obs_cache):
             return obs_cache["probe_vel"] - self.traj_pt_vel if "probe_vel" in obs_cache else np.zeros(3)
 
-        sensors += [probe_vel, probe_force, probe_torque, probe_to_goal_pose, probe_to_goal_vel]
+        sensors += [probe_vel, probe_contact_force, probe_torque, probe_to_goal_pose, probe_to_goal_vel]
 
         # low-level object information
         if self.use_object_obs:
@@ -391,6 +391,9 @@ class Ultrasound(SingleArmEnv):
         # ee resets - bias at initial state
         self.ee_force_bias = np.zeros(3)
         self.ee_torque_bias = np.zeros(3)
+
+        # says if probe has been in touch with torso
+        self.has_touched_torso = False
 
         # initial quantities of eef
         self.ee_initial_pos = self._eef_xpos
@@ -473,6 +476,7 @@ class Ultrasound(SingleArmEnv):
             - Joint Limit reached
             - Deviates from trajectory position
             - Deviates from desired orientation when in contact with torso
+            - Loses contact with torso
 
         Returns:
             bool: True if episode is terminated
@@ -498,6 +502,11 @@ class Ultrasound(SingleArmEnv):
         # Prematurely terminate if probe deviates from desired orientation when touching probe
         if self._check_probe_contact_with_torso() and self.ori_error > self.ori_error_threshold:
             print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
+            terminated = True
+
+        # Prematurely terminate if probe loses contact with torso
+        if self.has_touched_torso and not self._check_probe_contact_with_torso():
+            print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
             terminated = True
 
         return terminated
@@ -563,6 +572,7 @@ class Ultrasound(SingleArmEnv):
             match2 = re.search(reg_ex, g2)
             if match1 != None or match2 != None:
                 contact_normal_axis = contact.frame[:3]
+                self.has_touched_torso = True
                 return True
     
         return False
