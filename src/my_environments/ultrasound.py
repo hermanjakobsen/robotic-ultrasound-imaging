@@ -432,6 +432,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
+            self.data_time = np.array(np.zeros(self.horizon))
 
 
     def _post_action(self, action):
@@ -470,6 +471,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
+            self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon                          # percentage of completed horizon
         
         # save data
         if done and self.save_data:
@@ -479,6 +481,7 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_desired_quat, "simulation_data", "ee_desired_quat")
             self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
             self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
+            self._save_data(self.data_time, "simulation_data", "data_time")
             
 
         return reward, done, info
