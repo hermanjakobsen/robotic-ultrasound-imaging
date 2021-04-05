@@ -1,5 +1,7 @@
 from collections import OrderedDict
+import os
 import numpy as np
+import pandas as pd
 import re
 from klampt.model import trajectory
 import roboticstoolbox as rtb
@@ -83,6 +85,7 @@ class Ultrasound(SingleArmEnv):
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
             "camera names" param.
         early_termination (bool): True if episode is allowed to finish early.
+        save_data (bool): True if data from episode is collected and saved.
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -116,6 +119,7 @@ class Ultrasound(SingleArmEnv):
         camera_widths=256,
         camera_depths=False,
         early_termination=False,
+        save_data=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -140,21 +144,21 @@ class Ultrasound(SingleArmEnv):
         self.pos_error_mul = 100
         self.ori_error_mul = 0.2
         self.vel_error_mul = 10
-        self.force_error_mul = 0.25
+        self.force_error_mul = 0.1
 
         # reward multipliers
         self.pos_reward_mul = 3
         self.ori_reward_mul = 1
         self.vel_reward_mul = 1
-        self.force_reward_mul = 1
+        self.force_reward_mul = 3
 
         # desired states
-        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting
-        self.goal_contact_z_force = 7.0     # (N)  
+        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
+        self.goal_contact_z_force = 6.5     # (N)  
 
         # early termination configuration
         self.pos_error_threshold = 0.3
-        self.ori_error_threshold = 0.1
+        self.ori_error_threshold = 0.15
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
@@ -168,6 +172,7 @@ class Ultrasound(SingleArmEnv):
 
         # misc settings
         self.early_termination = early_termination
+        self.save_data = save_data
 
         super().__init__(
             robots=robots,
@@ -395,14 +400,13 @@ class Ultrasound(SingleArmEnv):
         # says if probe has been in touch with torso
         self.has_touched_torso = False
 
-        # initial quantities of eef
+        # initial position of end-effector
         self.ee_initial_pos = self._eef_xpos
 
         # create trajectory
         self.trajectory = self.get_trajectory()
 
-        # initialize timestep
-        self.timestep = 0                                                          # number of steps taken in episode
+        # initialize trajectory step
         self.initial_traj_step = np.random.default_rng().uniform(low=0, high=self.num_waypoints - 1)
         self.traj_step = self.initial_traj_step                                    # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
 
@@ -420,6 +424,15 @@ class Ultrasound(SingleArmEnv):
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
 
+        # initialize data collection
+        if self.save_data:
+            self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_traj_pos = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
+            self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
+            self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
+
 
     def _post_action(self, action):
         """
@@ -435,11 +448,8 @@ class Ultrasound(SingleArmEnv):
                 - (dict) info about current env step
         """
         reward, done, info = super()._post_action(action)
-        
-        # Increment timestep
-        self.timestep += 1 
 
-        # Convert to trajectory timestep
+        # Convert to trajectory timstep
         normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
         self.traj_step = self.timestep / normalizer + self.initial_traj_step
 
@@ -448,8 +458,28 @@ class Ultrasound(SingleArmEnv):
             self.ee_force_bias = self.robots[0].ee_force
             self.ee_torque_bias = self.robots[0].ee_torque
 
+        # check for early termination
         if self.early_termination:
             done = done or self._check_terminated()
+
+        # collect data
+        if self.save_data:
+            self.data_ee_pos[self.timestep - 1] = self._eef_xpos
+            self.data_ee_traj_pos[self.timestep - 1] = self.traj_pt
+            self.data_ee_quat[self.timestep - 1] = self._eef_xquat
+            self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
+            self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
+            self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
+        
+        # save data
+        if done and self.save_data:
+            self._save_data(self.data_ee_pos, "simulation_data", "ee_pos")
+            self._save_data(self.data_ee_traj_pos, "simulation_data", "ee_traj_pos")
+            self._save_data(self.data_ee_quat, "simulation_data", "ee_quat")
+            self._save_data(self.data_ee_desired_quat, "simulation_data", "ee_desired_quat")
+            self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
+            self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
+            
 
         return reward, done, info
 
@@ -672,6 +702,29 @@ class Ultrasound(SingleArmEnv):
         """
         noise = np.random.normal(mu, sigma, qpos.size)
         return qpos + noise
+
+
+    def _save_data(self, data, fldr, filename):
+        """
+        Saves data to desired path.
+
+        Args:
+            data (np.array): Data to be saved 
+            fldr (string): Name of destination folder
+            filename (string): Name of file
+
+        Returns:
+        """
+        os.makedirs(fldr, exist_ok=True)
+
+        idx = 1
+        path = os.path.join(fldr, filename + "_" + str(idx))
+
+        while os.path.exists(path):
+            idx += 1
+            path = os.path.join(fldr, filename + "_" + str(idx))
+
+        pd.DataFrame(data).to_csv(path, header=None, index=None)
 
 
     @property
