@@ -1,80 +1,48 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from fractions import Fraction
+import pandas as pd
 
-from mujoco_py import MjSimState, MjSim, MjViewer
+def plot_eef_data(data_filename, data_desired_filename, time_filename, pos_title):
+    data = pd.read_csv(data_filename, header=None) 
+    data_des = pd.read_csv(data_desired_filename, header=None)
+    time = pd.read_csv(time_filename, header=None)
 
-from robosuite.models.grippers import GRIPPER_MAPPING
-
-
-def print_world_xml_and_soft_torso_params(world):
-    soft_torso = world.mujoco_objects[0]
-    composite = soft_torso._get_composite_element()
-    print(world.get_xml())
-    print(composite.get('solrefsmooth'))
-    print('\n\n')
-
-
-def plot_joint_pos(joint_pos_filepath):
-    joint_pos = np.genfromtxt(joint_pos_filepath, delimiter=',')
-    ref_values = np.genfromtxt(joint_pos_filepath.replace('joint_pos', 'ref_values'), delimiter=',')
-
-    t = np.array([i for i in range(joint_pos.shape[0])])
-
+    axes = ["x", "y", "z"]
+    axes_des = ["x_des", "y_des", "z_des"]               # labels for desired values
     plt.figure()
-    for i in range(joint_pos.shape[1]):
-        pos = joint_pos[:, i]
-        plt.plot(t, pos, label='joint_' + str(i+1))
+    for i in range(data.shape[1]):
+        plt.plot(time, data[i], label=axes[i])
+        plt.plot(time, data_des[i], "--", label=axes_des[i])
 
-    plt.hlines(y=ref_values, xmin=0, xmax=t[-1], linestyle='dotted', colors='k', label='ref')
-
-    plt.yticks(plt.yticks()[0],[r"$" + format(str(Fraction(r/np.pi).limit_denominator(4)), )+ r"\pi$" for r in plt.yticks()[0]])
-
-    plt.grid()
     plt.legend()
-    plt.title('Test for joint position controller')
+    plt.xlabel("Completed episode (%)")
+    if pos_title:
+        plt.title("End-effector position")
+    else:
+        plt.title("End-effector velocity")
     plt.show()
 
 
-def plot_forces_and_contact(forces_filepath, contact_filepath, time_filepath):
-    contact = np.genfromtxt(contact_filepath, delimiter=',')
-    forces = np.genfromtxt(forces_filepath, delimiter=',')
-    time = np.genfromtxt(time_filepath, delimiter=',')
-    time = time - time[300]
-    time = time[300:]
+def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
+    plot_eef_data(pos_filename, pos_desired_filename, time_filename, True)
 
-    axes = ['x', 'y', 'z']
+
+def plot_eef_vel(vel_filename, vel_desired_filename, time_filename):
+    plot_eef_data(vel_filename, vel_desired_filename, time_filename, False)
+
+
+def plot_contact_and_contact_force(contact_filename, force_filename, desired_force_filename, time_filename):
+    contact = pd.read_csv(contact_filename, header=None) 
+    force = pd.read_csv(force_filename, header=None)
+    desired_force = pd.read_csv(desired_force_filename, header=None)
+    time = pd.read_csv(time_filename, header=None) 
+
     plt.figure()
-    for i in range(forces.shape[1]):
-        force = forces[300:, i]
-        plt.plot(time, force, label=axes[i])
-    
-    plt.plot(time, contact[300:], label='contact')
-    plt.grid()
+    plt.plot(time, contact, label="is_contact")
+    plt.plot(time, force, label="z_force")
+    plt.plot(time, desired_force, "--", label="desired_force")
+
     plt.legend()
-    plt.xlabel('Time (s)')
-    plt.ylabel('Force (N)')
-    plt.title('Interaction forces between the probe soft body')
+    plt.xlabel("Completed episode (%)")
+    plt.title("Contact force")
     plt.show()
-
-
-def plot_gripper_position(position_filepath, time_filepath):
-    position = np.genfromtxt(position_filepath, delimiter=',')
-    time = np.genfromtxt(time_filepath, delimiter=',')
-    time = time - time[300]
-    time = time[300:]
-
-    axes = ['x', 'y', 'z']
-    plt.figure()
-    for i in range(position.shape[1]):
-        pos = position[300:, i]
-        plt.plot(time, pos, label=axes[i])
-    
-    plt.grid()
-    plt.legend()
-    plt.xlabel('Time (s)')
-    plt.ylabel('Position (m)')
-    plt.title('Position of gripper')
-    plt.show()
-
-

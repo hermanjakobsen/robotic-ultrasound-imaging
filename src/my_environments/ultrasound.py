@@ -157,7 +157,7 @@ class Ultrasound(SingleArmEnv):
         self.goal_contact_z_force = 6.5     # (N)  
 
         # early termination configuration
-        self.pos_error_threshold = 0.3
+        self.pos_error_threshold = 0.12
         self.ori_error_threshold = 0.15
 
         # examination trajectory
@@ -428,10 +428,13 @@ class Ultrasound(SingleArmEnv):
         if self.save_data:
             self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_traj_pos = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_traj_vel = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
             self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
+            self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_time = np.array(np.zeros(self.horizon))
 
 
@@ -467,22 +470,27 @@ class Ultrasound(SingleArmEnv):
         if self.save_data:
             self.data_ee_pos[self.timestep - 1] = self._eef_xpos
             self.data_ee_traj_pos[self.timestep - 1] = self.traj_pt
+            self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
+            self.data_ee_traj_vel[self.timestep - 1] = self.traj_pt_vel
             self.data_ee_quat[self.timestep - 1] = self._eef_xquat
             self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
-            self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon                          # percentage of completed horizon
+            self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
+            self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
         
         # save data
         if done and self.save_data:
             self._save_data(self.data_ee_pos, "simulation_data", "ee_pos")
             self._save_data(self.data_ee_traj_pos, "simulation_data", "ee_traj_pos")
+            self._save_data(self.data_ee_vel, "simulation_data", "ee_vel")
+            self._save_data(self.data_ee_traj_vel, "simulation_data", "ee_traj_vel")
             self._save_data(self.data_ee_quat, "simulation_data", "ee_quat")
             self._save_data(self.data_ee_desired_quat, "simulation_data", "ee_desired_quat")
             self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
             self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
-            self._save_data(self.data_time, "simulation_data", "data_time")
-            
+            self._save_data(self.data_is_contact, "simulation_data", "is_contact")
+            self._save_data(self.data_time, "simulation_data", "time")
 
         return reward, done, info
 
