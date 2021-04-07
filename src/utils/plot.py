@@ -46,3 +46,23 @@ def plot_contact_and_contact_force(contact_filename, force_filename, desired_for
     plt.xlabel("Completed episode (%)")
     plt.title("Contact force")
     plt.show()
+
+
+def plot_rewards(pos_reward_filename, ori_reward_filename, vel_reward_filename, force_reward_filename, time_filename):
+    pos_reward = pd.read_csv(pos_reward_filename, header=None)
+    ori_reward = pd.read_csv(ori_reward_filename, header=None)
+    vel_reward = pd.read_csv(vel_reward_filename, header=None)
+    force_reward = pd.read_csv(force_reward_filename, header=None)
+
+    time = pd.read_csv(time_filename, header=None)
+
+    plt.figure()
+    plt.plot(time, pos_reward, label="pos")
+    plt.plot(time, ori_reward, label="ori")
+    plt.plot(time, vel_reward, label="vel")
+    plt.plot(time, force_reward, label="force")
+    
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("Rewards")
+    plt.show()

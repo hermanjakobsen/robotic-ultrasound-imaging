@@ -421,6 +421,7 @@ class Ultrasound(SingleArmEnv):
 
         # initialize data collection
         if self.save_data:
+            # simulation data
             self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
@@ -431,6 +432,12 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_time = np.array(np.zeros(self.horizon))
+
+            # reward data
+            self.data_pos_reward = np.array(np.zeros(self.horizon))
+            self.data_ori_reward = np.array(np.zeros(self.horizon))
+            self.data_vel_reward = np.array(np.zeros(self.horizon))
+            self.data_force_reward = np.array(np.zeros(self.horizon))
 
 
     def _post_action(self, action):
@@ -461,6 +468,7 @@ class Ultrasound(SingleArmEnv):
 
         # collect data
         if self.save_data:
+            # simulation data
             self.data_ee_pos[self.timestep - 1] = self._eef_xpos
             self.data_ee_goal_pos[self.timestep - 1] = self.traj_pt
             self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
@@ -471,9 +479,16 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
+
+            # reward data
+            self.data_pos_reward[self.timestep - 1] = self.pos_reward
+            self.data_ori_reward[self.timestep - 1] = self.ori_reward
+            self.data_vel_reward[self.timestep - 1] = self.vel_reward
+            self.data_force_reward[self.timestep - 1] = self.force_reward
         
         # save data
         if done and self.save_data:
+            # simulation data
             self._save_data(self.data_ee_pos, "simulation_data", "ee_pos")
             self._save_data(self.data_ee_goal_pos, "simulation_data", "ee_goal_pos")
             self._save_data(self.data_ee_vel, "simulation_data", "ee_vel")
@@ -484,6 +499,13 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
             self._save_data(self.data_is_contact, "simulation_data", "is_contact")
             self._save_data(self.data_time, "simulation_data", "time")
+
+            # reward data
+            self._save_data(self.data_pos_reward, "reward_data", "pos")
+            self._save_data(self.data_ori_reward, "reward_data", "ori")
+            self._save_data(self.data_vel_reward, "reward_data", "vel")
+            self._save_data(self.data_force_reward, "reward_data", "force")
+
 
         return reward, done, info
 
