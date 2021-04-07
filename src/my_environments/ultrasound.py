@@ -422,9 +422,9 @@ class Ultrasound(SingleArmEnv):
         # initialize data collection
         if self.save_data:
             self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_traj_pos = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_traj_vel = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_goal_vel = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
             self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
@@ -462,9 +462,9 @@ class Ultrasound(SingleArmEnv):
         # collect data
         if self.save_data:
             self.data_ee_pos[self.timestep - 1] = self._eef_xpos
-            self.data_ee_traj_pos[self.timestep - 1] = self.traj_pt
+            self.data_ee_goal_pos[self.timestep - 1] = self.traj_pt
             self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
-            self.data_ee_traj_vel[self.timestep - 1] = self.traj_pt_vel
+            self.data_ee_goal_vel[self.timestep - 1] = self.goal_velocity
             self.data_ee_quat[self.timestep - 1] = self._eef_xquat
             self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
@@ -475,9 +475,9 @@ class Ultrasound(SingleArmEnv):
         # save data
         if done and self.save_data:
             self._save_data(self.data_ee_pos, "simulation_data", "ee_pos")
-            self._save_data(self.data_ee_traj_pos, "simulation_data", "ee_traj_pos")
+            self._save_data(self.data_ee_goal_pos, "simulation_data", "ee_goal_pos")
             self._save_data(self.data_ee_vel, "simulation_data", "ee_vel")
-            self._save_data(self.data_ee_traj_vel, "simulation_data", "ee_traj_vel")
+            self._save_data(self.data_ee_goal_vel, "simulation_data", "ee_goal_vel")
             self._save_data(self.data_ee_quat, "simulation_data", "ee_quat")
             self._save_data(self.data_ee_desired_quat, "simulation_data", "ee_desired_quat")
             self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
