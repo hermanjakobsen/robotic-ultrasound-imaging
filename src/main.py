@@ -4,28 +4,19 @@ import os.path as osp
 import numpy as np
 
 from robosuite.environments.base import register_env
-from robosuite import load_controller_config
-from robosuite.wrappers import GymWrapper
-
-from stable_baselines3 import PPO
-from stable_baselines3.common.save_util import save_to_zip_file, load_from_zip_file
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from my_environments import Ultrasound, FetchPush
 from my_models.grippers import UltrasoundProbeGripper
 from utils.common import register_gripper
-from utils.quaternion import q_log
-from demos import contact_btw_probe_and_body_demo, standard_mujoco_py_demo, change_parameters_of_soft_body_demo
-
-import yaml
+import utils.plot as plt
 
 register_env(Ultrasound)
 register_env(FetchPush)
 register_gripper(UltrasoundProbeGripper)
 
 
-# USED FOR TESTING
+## Simulation ##
+
 def get_policy_action(obs):
     # a trained policy could be used here, but we choose a random action
     low, high = env.action_spec
@@ -58,7 +49,9 @@ env_options["has_renderer"] = True
 env_options["has_offscreen_renderer"] = False
 env_options["render_camera"] = None
 env_options["use_camera_obs"] = False
-env_options["horizon"] = 400
+env_options["horizon"] = 1000
+env_options["early_termination"] = False
+env_options["save_data"] = True
  
 
 env = suite.make(env_id, **env_options)
@@ -69,25 +62,28 @@ obs = env.reset()
 done = False
 ret = 0.
 for t in range(env.horizon):
-    action = [0, 0, 0, 0., 0 ,0]         # use observation to decide on an action
+    #print(t)
+    #action = [0.0, .0, .0, 0, 0, 0]
+    action = [0.2, 0, -0.3, 0., 0 ,0]         # use observation to decide on an action
+    if t > 110:
+        action = [0.2, 0, -0.005, 0, 0, 0]
     obs, reward, done, _ = env.step(action) # play action
-    eef_pos = obs["robot0_eef_pos"]
-    #print(f"eef: {eef_pos}")
+    #contact_force = obs["probe_contact_force"]
+    #print(f"eef: {contact_force}")
     #print(obs["probe_ori_to_desired"])
     print(reward)
-    torso_pos = obs["torso_pos"]
-    ret += reward
+    #torso_pos = obs["torso_pos"]
+    #ret += reward
     env.render()
-    if t == 100:
-        env.reset()
+    if done:
+        env.close()
+        break
 print("rollout completed with return {}".format(ret))
 
-## Simulations
-#controller_demo('UR5e', save_data=False)
-#contact_btw_probe_and_body_demo(1, 'main', save_data=False)
-#standard_mujoco_py_demo()
-#change_parameters_of_soft_body_demo(3)
 
-#plot_joint_pos('data/UR5e_joint_pos_controller_test.csv')
-#plot_forces_and_contact('data/main_ee_forces_contact_btw_probe_and_body.csv', 'data/main_contact_contact_btw_probe_and_body.csv')
-#plot_gripper_position('data/main_gripper_pos_contact_btw_probe_and_body.csv')
+## Plotting ##
+#plt.plot_eef_pos("simulation_data/ee_pos_1", "simulation_data/ee_traj_pos_1", "simulation_data/time_1")
+#plt.plot_eef_vel("simulation_data/ee_vel_1", "simulation_data/ee_traj_vel_1", "simulation_data/time_1")
+#plt.plot_contact_and_contact_force("simulation_data/is_contact_1", "simulation_data/ee_z_contact_force_1", \
+#    "simulation_data/ee_z_desired_contact_force_1", "simulation_data/time_1")
+#plt.plot_rewards("reward_data/pos_1", "reward_data/ori_1", "reward_data/vel_1", "reward_data/force_1", "simulation_data/time_1")
