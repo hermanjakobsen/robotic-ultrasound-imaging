@@ -141,24 +141,25 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
 
         # error multipliers
-        self.pos_error_mul = 100
+        self.pos_error_mul = 25
         self.ori_error_mul = 0.2
-        self.vel_error_mul = 10
-        self.force_error_mul = 0.1
+        self.vel_error_mul = 5
+        self.force_error_mul = 0.4
 
         # reward multipliers
-        self.pos_reward_mul = 3
+        self.pos_reward_mul = 1
         self.ori_reward_mul = 1
         self.vel_reward_mul = 1
-        self.force_reward_mul = 3
+        self.force_reward_mul = 1
 
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
-        self.goal_contact_z_force = 6.5     # (N)  
+        self.goal_velocity = 0.05           # norm of velocity vector
+        self.goal_contact_z_force = 5       # (N)  
 
         # early termination configuration
-        self.pos_error_threshold = 0.12
-        self.ori_error_threshold = 0.15
+        self.pos_error_threshold = 0.35
+        self.ori_error_threshold = 0.10
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
@@ -209,7 +210,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             float: reward value
         """
-        
+
         reward = 0.
 
         probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]
@@ -221,7 +222,7 @@ class Ultrasound(SingleArmEnv):
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
 
         # position
-        self.pos_error = self.pos_error_mul * (np.power(self._eef_xpos - self.traj_pt , 2))
+        self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos - self.traj_pt))
         self.pos_reward = self.pos_reward_mul * np.exp(-1 * np.linalg.norm(self.pos_error))
 
         # orientation
@@ -229,11 +230,11 @@ class Ultrasound(SingleArmEnv):
         self.ori_reward = self.ori_reward_mul * np.exp(-1 * self.ori_error)
 
         # velocity
-        self.vel_error = self.vel_error_mul * (np.power(self.robots[0]._hand_vel - self.traj_pt_vel, 2))
+        self.vel_error =  np.square(self.vel_error_mul * (self.robots[0]._hand_vel - self.vel_running_mean))
         self.vel_reward = self.vel_reward_mul * np.exp(-1 * np.linalg.norm(self.vel_error))
         
         # force
-        self.force_error = self.force_error_mul * (np.power(probe_contact_z_force - self.goal_contact_z_force, 2))
+        self.force_error = np.square(self.force_error_mul * (probe_contact_z_force - self.goal_contact_z_force))
         self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error)
 
         # add rewards
@@ -393,10 +394,6 @@ class Ultrasound(SingleArmEnv):
                 self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
                 self.sim.forward()      # update sim states
                 
-        # ee resets - bias at initial state
-        self.ee_force_bias = np.zeros(3)
-        self.ee_torque_bias = np.zeros(3)
-
         # says if probe has been in touch with torso
         self.has_touched_torso = False
 
@@ -423,6 +420,9 @@ class Ultrasound(SingleArmEnv):
 
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
+
+        # initialize running mean of velocity (simple moving average)
+        self.vel_running_mean = np.linalg.norm(self.robots[0]._hand_vel)
 
         # initialize data collection
         if self.save_data:
@@ -457,10 +457,8 @@ class Ultrasound(SingleArmEnv):
         normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
         self.traj_step = self.timestep / normalizer + self.initial_traj_step
 
-        # Update force bias
-        if np.linalg.norm(self.ee_force_bias) == 0:
-            self.ee_force_bias = self.robots[0].ee_force
-            self.ee_torque_bias = self.robots[0].ee_torque
+        # update velocity running mean
+        self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
 
         # check for early termination
         if self.early_termination:
@@ -546,9 +544,9 @@ class Ultrasound(SingleArmEnv):
             terminated = True
 
         # Prematurely terminate if probe loses contact with torso
-        if self.has_touched_torso and not self._check_probe_contact_with_torso():
-            print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
-            terminated = True
+        #if self.has_touched_torso and not self._check_probe_contact_with_torso():
+        #    print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
+        #    terminated = True
 
         return terminated
 
