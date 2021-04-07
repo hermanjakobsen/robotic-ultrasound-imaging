@@ -213,13 +213,12 @@ class Ultrasound(SingleArmEnv):
 
         reward = 0.
 
-        probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]
+        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
 
-        self.traj_pt = self.trajectory.eval(self.traj_step)
-        self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
+        probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]        
 
         # position
         self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos - self.traj_pt))
@@ -337,11 +336,7 @@ class Ultrasound(SingleArmEnv):
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        @sensor(modality=modality)
-        def probe_to_goal_vel(obs_cache):
-            return obs_cache["probe_vel"] - self.traj_pt_vel if "probe_vel" in obs_cache else np.zeros(3)
-
-        sensors += [probe_vel, probe_contact_force, probe_torque, probe_to_goal_pose, probe_to_goal_vel]
+        sensors += [probe_contact_force, probe_torque, probe_vel, probe_to_goal_pose]
 
         # low-level object information
         if self.use_object_obs:
