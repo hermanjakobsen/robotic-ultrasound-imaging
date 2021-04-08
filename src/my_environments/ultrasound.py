@@ -147,10 +147,10 @@ class Ultrasound(SingleArmEnv):
         self.force_error_mul = 0.4
 
         # reward multipliers
-        self.pos_reward_mul = 1
+        self.pos_reward_mul = 5
         self.ori_reward_mul = 1
-        self.vel_reward_mul = 1
-        self.force_reward_mul = 1
+        self.vel_reward_mul = 2
+        self.force_reward_mul = 3
 
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
@@ -234,12 +234,10 @@ class Ultrasound(SingleArmEnv):
         
         # force
         self.force_error = np.square(self.force_error_mul * (probe_contact_z_force - self.goal_contact_z_force))
-        self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error)
+        self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
 
         # add rewards
-        reward += self.pos_reward + self.ori_reward + self.vel_reward
-        if self._check_probe_contact_with_torso():
-            reward += self.force_reward
+        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward)
 
         return reward
 
@@ -425,12 +423,13 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_goal_vel = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_goal_vel = np.array(np.zeros(self.horizon))
             self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
             self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
+            self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_time = np.array(np.zeros(self.horizon))
 
             # reward data
@@ -438,6 +437,9 @@ class Ultrasound(SingleArmEnv):
             self.data_ori_reward = np.array(np.zeros(self.horizon))
             self.data_vel_reward = np.array(np.zeros(self.horizon))
             self.data_force_reward = np.array(np.zeros(self.horizon))
+
+            # policy/controller data
+            self.data_action = np.array(np.zeros((self.horizon, self.robots[0].action_dim)))
 
 
     def _post_action(self, action):
@@ -478,6 +480,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
+            self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
             # reward data
@@ -485,6 +488,9 @@ class Ultrasound(SingleArmEnv):
             self.data_ori_reward[self.timestep - 1] = self.ori_reward
             self.data_vel_reward[self.timestep - 1] = self.vel_reward
             self.data_force_reward[self.timestep - 1] = self.force_reward
+
+            # policy/controller data
+            self.data_action[self.timestep - 1] = action
         
         # save data
         if done and self.save_data:
@@ -498,6 +504,7 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
             self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
             self._save_data(self.data_is_contact, "simulation_data", "is_contact")
+            self._save_data(self.data_q_pos, "simulation_data", "q_pos")
             self._save_data(self.data_time, "simulation_data", "time")
 
             # reward data
@@ -505,6 +512,9 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ori_reward, "reward_data", "ori")
             self._save_data(self.data_vel_reward, "reward_data", "vel")
             self._save_data(self.data_force_reward, "reward_data", "force")
+
+            # policy/controller data
+            self._save_data(self.data_action, "policy_data", "action")
 
 
         return reward, done, info
@@ -744,7 +754,7 @@ class Ultrasound(SingleArmEnv):
         os.makedirs(fldr, exist_ok=True)
 
         idx = 1
-        path = os.path.join(fldr, filename + "_" + str(idx))
+        path = os.path.join(fldr, filename + "_" + str(idx) + ".csv")
 
         while os.path.exists(path):
             idx += 1
