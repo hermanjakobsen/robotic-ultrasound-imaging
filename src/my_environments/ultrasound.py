@@ -310,31 +310,49 @@ class Ultrasound(SingleArmEnv):
 
         pf = self.robots[0].robot_model.naming_prefix
 
+        # Remove unnecessary observables
+        del observables[pf + "joint_pos"]
+        del observables[pf + "joint_pos_cos"]
+        del observables[pf + "joint_pos_sin"]
+        del observables[pf + "joint_vel"]
+        del observables[pf + "gripper_qvel"]
+        del observables[pf + "gripper_qpos"]
+        del observables[pf + "eef_pos"]
+        del observables[pf + "eef_quat"]
+
         sensors = []
 
         # probe information
         modality = "probe"
 
         @sensor(modality=modality)
-        def probe_contact_force(obs_cache):
-            return self.sim.data.cfrc_ext[self.probe_id][-3:]
+        def eef_contact_force_z_diff(obs_cache):
+            return self.sim.data.cfrc_ext[self.probe_id][-1] - self.goal_contact_z_force
 
         @sensor(modality=modality)
-        def probe_torque(obs_cache):
+        def eef_contact_force(obs_cache):
+            return self.sim.data.cfrc_ext[self.probe_id][-3:-1]
+
+        @sensor(modality=modality)
+        def eef_torque(obs_cache):
             return self.robots[0].ee_torque
 
         @sensor(modality=modality)
-        def probe_vel(obs_cache):
+        def eef_vel(obs_cache):
             return self.robots[0]._hand_vel
 
         @sensor(modality=modality)
-        def probe_to_goal_pose(obs_cache):
-            pos_error = obs_cache[f"{pf}eef_pos"] - self.traj_pt if f"{pf}eef_pos" in obs_cache else np.zeros(3)
-            quat_error = difference_quat(obs_cache[f"{pf}eef_quat"], self.goal_quat) if  f"{pf}eef_quat" in obs_cache else np.zeros(4)
+        def eef_mean_vel(obs_cache):
+            return self.vel_running_mean
+
+        @sensor(modality=modality)
+        def eef_pose_diff(obs_cache):
+            pos_error = self._eef_xpos - self.traj_pt
+            quat_error = difference_quat(self._eef_xquat, self.goal_quat)
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        sensors += [probe_contact_force, probe_torque, probe_vel, probe_to_goal_pose]
+        sensors += [eef_contact_force_z_diff, eef_contact_force, eef_torque, eef_vel, eef_mean_vel, eef_pose_diff]
 
         # low-level object information
         if self.use_object_obs:
@@ -430,6 +448,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_time = np.array(np.zeros(self.horizon))
 
             # reward data
@@ -481,6 +500,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
             self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
+            self.data_q_torques[self.timestep - 1] = self.robots[0].torques
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
             # reward data
@@ -505,6 +525,7 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
             self._save_data(self.data_is_contact, "simulation_data", "is_contact")
             self._save_data(self.data_q_pos, "simulation_data", "q_pos")
+            self._save_data(self.data_q_torques, "simulation_data", "q_torques")
             self._save_data(self.data_time, "simulation_data", "time")
 
             # reward data
