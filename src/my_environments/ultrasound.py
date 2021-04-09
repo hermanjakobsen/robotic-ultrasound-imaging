@@ -323,7 +323,7 @@ class Ultrasound(SingleArmEnv):
         sensors = []
 
         # probe information
-        modality = "probe"
+        modality = f"{pf}proprio"       # Need to use this modality since proprio obs cannot be empty in GymWrapper
 
         @sensor(modality=modality)
         def eef_contact_force_z_diff(obs_cache):
