@@ -42,3 +42,10 @@ def transform_ee_frame_axes(measurement):
     # y (pandaGripper) = -z (probe)
     # z (pandaGripper) =  y (probe)
     return np.array([-measurement[0], -measurement[2], measurement[1]])
+
+
+def get_elements_in_obs(obs):
+    num_el = 0
+    for key in obs:
+        num_el += obs[key].size
+    return int(num_el / 2)               # every observation is added twice (default robosuite)
