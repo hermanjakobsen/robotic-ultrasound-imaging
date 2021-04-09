@@ -47,7 +47,7 @@ def plot_contact_and_contact_force(contact_filename, force_filename, desired_for
     time = pd.read_csv(time_filename, header=None) 
 
     plt.figure()
-    plt.plot(time, contact, label="is_contact")
+    plt.plot(time, contact, label="contact")
     plt.plot(time, force, label="z_force")
     plt.plot(time, desired_force, "--", label="desired_force")
 
@@ -65,15 +65,17 @@ def plot_rewards(pos_reward_filename, ori_reward_filename, vel_reward_filename, 
 
     time = pd.read_csv(time_filename, header=None)
 
-    plt.figure()
-    plt.plot(time, pos_reward, label="pos")
-    plt.plot(time, ori_reward, label="ori")
-    plt.plot(time, vel_reward, label="vel")
-    plt.plot(time, force_reward, label="force")
-    
-    plt.legend()
+    labels = ["pos", "ori", "vel", "force"]
+    colors = ['red', 'black', 'blue', 'green']
+    rewards = [pos_reward, ori_reward, vel_reward, force_reward]
+
+    fig, axs = plt.subplots(len(rewards))
+    fig.suptitle("Rewards")
+    for i in range(len(rewards)):
+        axs[i].plot(time, rewards[i], color=colors[i])
+        axs[i].set_title(labels[i])
+
     plt.xlabel("Completed episode (%)")
-    plt.title("Rewards")
     plt.show()
 
 
@@ -81,31 +83,51 @@ def plot_qpos(qpos_filename, time_filename):
     qpos = pd.read_csv(qpos_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
-    plt.figure()
+    colors = ['red', 'black', 'blue', 'brown', 'green', "purple", "olive"]
+
+    fig, axs = plt.subplots(len(qpos.columns))
+    fig.suptitle("Joint positions")
     for i in range(len(qpos.columns)):
-        plt.plot(time, qpos[i], label="q" + str(i + 1))
+        axs[i].plot(time, qpos[i], color=colors[i])
+        axs[i].set_title("q" + str(i + 1))
     
-    plt.legend()
     plt.xlabel("Completed episode (%)")
-    plt.title("Joint positions")
     plt.show()
 
 
-def plot_controller_actions(action_filename, time_filename):
+
+def plot_qtorques(qtorque_filename, time_filename):
+    torques = pd.read_csv(qtorque_filename, header=None)
+    time = pd.read_csv(time_filename, header=None)
+
+    colors = ['red', 'black', 'blue', 'brown', 'green', "purple", "olive"]
+
+    fig, axs = plt.subplots(len(torques.columns))
+    fig.suptitle("Joint torques")
+    for i in range(len(torques.columns)):
+        axs[i].plot(time, torques[i], color=colors[i])
+        axs[i].set_title("q" + str(i + 1))
+        axs[i].set(ylabel="N")
+    
+    plt.xlabel("Completed episode (%)")
+    plt.show()
+
+
+def plot_controller_delta(action_filename, time_filename):
     action = pd.read_csv(action_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
-    controller_action = action.iloc[:, -6:]
-    controller_action.columns = [i for i in range(len(controller_action.columns))]  # reset column indices
+    controller_delta = action.iloc[:, -6:]
+    controller_delta.columns = [i for i in range(len(controller_delta.columns))]  # reset column indices
 
     labels = ["x", "y", "z", "ax", "ay", "az"]
 
-    for i in range(len(controller_action.columns)):
-        plt.figure(i)
-        plt.plot(time, controller_action[i])
-        plt.xlabel("Completed episode (%)")
-        plt.title("Controller action, " + str(labels[i]))
-
+    fig , axs = plt.subplots(len(controller_delta.columns))
+    fig.suptitle("Controller action")
+    for i in range(len(controller_delta.columns)):
+        axs[i].plot(time, controller_delta[i])
+        axs[i].set_title(labels[i])
+    plt.xlabel("Completed episode (%)")
     plt.show()
 
 
@@ -114,6 +136,7 @@ def plot_controller_gains(action_filename, time_filename):
     time = pd.read_csv(time_filename, header=None)
 
     labels = ["x", "y", "z", "ax", "ay", "az"]
+    colors = ['red', 'black', 'blue', 'brown', 'green', "purple"]
 
     # variable mode
     if len(action.columns) == 18:
@@ -122,13 +145,13 @@ def plot_controller_gains(action_filename, time_filename):
 
         # reset column indices
         damping_ratio.columns = [i for i in range(len(damping_ratio.columns))]
-        plt.figure(0)
+        fig1, axs1 = plt.subplots(len(damping_ratio.columns))
+        fig1.suptitle("Controller damping ratio")
         for i in range(len(damping_ratio.columns)):
-            plt.plot(time, damping_ratio[i], label=labels[i])
+            axs1[i].plot(time, damping_ratio[i], color=colors[i])
+            axs1[i].set_title(labels[i])
 
-        plt.legend()
         plt.xlabel("Completed episode (%)")
-        plt.title("Controller damping ratio")
     
     # variable_kp mode
     elif len(action.columns) == 12:
@@ -141,12 +164,12 @@ def plot_controller_gains(action_filename, time_filename):
     # reset column indices
     kp.columns = [i for i in range(len(kp.columns))]  
 
-    plt.figure(1)
+    fig2, axs2 = plt.subplots(len(kp.columns))
+    fig2.suptitle("Controller gains (Kp)")
     for i in range(len(kp.columns)):
-        plt.plot(time, kp[i], label=labels[i])
+        axs2[i].plot(time, kp[i], color=colors[i])
+        axs2[i].set_title(labels[i])
 
-    plt.legend()
     plt.xlabel("Completed episode (%)")
-    plt.title("Controller gains (Kp)")
 
     plt.show()
