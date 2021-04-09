@@ -23,15 +23,17 @@ def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
     plt.show()
 
 
-def plot_eef_vel(vel_filename, vel_desired_filename, time_filename):
+def plot_eef_vel(vel_filename, mean_vel_filename, desired_vel_filename, time_filename):
     vel = pd.read_csv(vel_filename, header=None)
     vel = vel.apply(np.linalg.norm, axis=1)
-    vel_des = pd.read_csv(vel_desired_filename, header=None)
+    mean_vel = pd.read_csv(mean_vel_filename, header=None)
+    des_vel = pd.read_csv(desired_vel_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
     plt.figure()
     plt.plot(time, vel, label="vel")
-    plt.plot(time, vel_des, label="vel_goal")
+    plt.plot(time, mean_vel, label="mean_vel")
+    plt.plot(time, des_vel, "--", label="goal_vel")
 
     plt.legend()
     plt.xlabel("Completed episode (%)")
@@ -40,20 +42,20 @@ def plot_eef_vel(vel_filename, vel_desired_filename, time_filename):
     plt.show()
 
 
-def plot_contact_and_contact_force(contact_filename, force_filename, desired_force_filename, time_filename):
-    contact = pd.read_csv(contact_filename, header=None) 
+def plot_contact_and_contact_force(force_filename, mean_force_filename, desired_force_filename, time_filename):
     force = pd.read_csv(force_filename, header=None)
-    desired_force = pd.read_csv(desired_force_filename, header=None)
+    mean_force = pd.read_csv(mean_force_filename, header=None)
+    des_force = pd.read_csv(desired_force_filename, header=None)
     time = pd.read_csv(time_filename, header=None) 
 
     plt.figure()
-    plt.plot(time, contact, label="contact")
-    plt.plot(time, force, label="z_force")
-    plt.plot(time, desired_force, "--", label="desired_force")
+    plt.plot(time, force, label="force")
+    plt.plot(time, mean_force, label="mean_force")
+    plt.plot(time, des_force, "--", label="goal_force")
 
     plt.legend()
     plt.xlabel("Completed episode (%)")
-    plt.title("Contact force")
+    plt.title("Contact force z")
     plt.show()
 
 
