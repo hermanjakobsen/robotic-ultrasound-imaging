@@ -136,6 +136,9 @@ class Ultrasound(SingleArmEnv):
         self.mu = 0
         self.sigma = 0.01
 
+        # settings for contact force running mean
+        self.alpha = 0.8    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
+
         # reward configuration 
         self.reward_scale = reward_scale
         self.reward_shaping = reward_shaping
@@ -221,7 +224,7 @@ class Ultrasound(SingleArmEnv):
         probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]        
 
         # position
-        self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos - self.traj_pt))
+        self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
         self.pos_reward = self.pos_reward_mul * np.exp(-1 * np.linalg.norm(self.pos_error))
 
         # orientation
@@ -432,8 +435,11 @@ class Ultrasound(SingleArmEnv):
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
 
-        # initialize running mean of velocity (simple moving average)
+        # initialize running mean of velocity 
         self.vel_running_mean = np.linalg.norm(self.robots[0]._hand_vel)
+
+        # initialize running mean of contact force
+        self.z_contact_force_running_mean = self.sim.data.cfrc_ext[self.probe_id][-1]
 
         # initialize data collection
         if self.save_data:
@@ -442,10 +448,12 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_vel = np.array(np.zeros(self.horizon))
+            self.data_ee_running_mean_vel = np.array(np.zeros(self.horizon))
             self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
             self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_running_mean_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
@@ -480,8 +488,11 @@ class Ultrasound(SingleArmEnv):
         normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
         self.traj_step = self.timestep / normalizer + self.initial_traj_step
 
-        # update velocity running mean
+        # update velocity running mean (simple moving average)
         self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
+
+        # update contact force running mean (exponential moving average)
+        self.z_contact_force_running_mean = self.alpha * self.sim.data.cfrc_ext[self.probe_id][-1] + (1 - self.alpha) * self.z_contact_force_running_mean
 
         # check for early termination
         if self.early_termination:
@@ -494,10 +505,12 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_goal_pos[self.timestep - 1] = self.traj_pt
             self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
             self.data_ee_goal_vel[self.timestep - 1] = self.goal_velocity
+            self.data_ee_running_mean_vel[self.timestep -1] = self.vel_running_mean
             self.data_ee_quat[self.timestep - 1] = self._eef_xquat
             self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
+            self.data_ee_z_running_mean_contact_force[self.timestep - 1] = self.z_contact_force_running_mean
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
             self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
             self.data_q_torques[self.timestep - 1] = self.robots[0].torques
@@ -515,24 +528,28 @@ class Ultrasound(SingleArmEnv):
         # save data
         if done and self.save_data:
             # simulation data
-            self._save_data(self.data_ee_pos, "simulation_data", "ee_pos")
-            self._save_data(self.data_ee_goal_pos, "simulation_data", "ee_goal_pos")
-            self._save_data(self.data_ee_vel, "simulation_data", "ee_vel")
-            self._save_data(self.data_ee_goal_vel, "simulation_data", "ee_goal_vel")
-            self._save_data(self.data_ee_quat, "simulation_data", "ee_quat")
-            self._save_data(self.data_ee_desired_quat, "simulation_data", "ee_desired_quat")
-            self._save_data(self.data_ee_z_contact_force, "simulation_data", "ee_z_contact_force")
-            self._save_data(self.data_ee_z_desired_contact_force, "simulation_data", "ee_z_desired_contact_force")
-            self._save_data(self.data_is_contact, "simulation_data", "is_contact")
-            self._save_data(self.data_q_pos, "simulation_data", "q_pos")
-            self._save_data(self.data_q_torques, "simulation_data", "q_torques")
-            self._save_data(self.data_time, "simulation_data", "time")
+            sim_data_fldr = "simulation_data"
+            self._save_data(self.data_ee_pos, sim_data_fldr, "ee_pos")
+            self._save_data(self.data_ee_goal_pos, sim_data_fldr, "ee_goal_pos")
+            self._save_data(self.data_ee_vel, sim_data_fldr, "ee_vel")
+            self._save_data(self.data_ee_goal_vel, sim_data_fldr, "ee_goal_vel")
+            self._save_data(self.data_ee_running_mean_vel, sim_data_fldr, "ee_running_mean_vel")
+            self._save_data(self.data_ee_quat, sim_data_fldr, "ee_quat")
+            self._save_data(self.data_ee_desired_quat, sim_data_fldr, "ee_desired_quat")
+            self._save_data(self.data_ee_z_contact_force, sim_data_fldr, "ee_z_contact_force")
+            self._save_data(self.data_ee_z_desired_contact_force, sim_data_fldr, "ee_z_desired_contact_force")
+            self._save_data(self.data_ee_z_running_mean_contact_force, sim_data_fldr, "ee_z_running_mean_contact_force")
+            self._save_data(self.data_is_contact, sim_data_fldr, "is_contact")
+            self._save_data(self.data_q_pos, sim_data_fldr, "q_pos")
+            self._save_data(self.data_q_torques, sim_data_fldr, "q_torques")
+            self._save_data(self.data_time, sim_data_fldr, "time")
 
             # reward data
-            self._save_data(self.data_pos_reward, "reward_data", "pos")
-            self._save_data(self.data_ori_reward, "reward_data", "ori")
-            self._save_data(self.data_vel_reward, "reward_data", "vel")
-            self._save_data(self.data_force_reward, "reward_data", "force")
+            reward_data_fdlr = "reward_data"
+            self._save_data(self.data_pos_reward, reward_data_fdlr, "pos")
+            self._save_data(self.data_ori_reward, reward_data_fdlr, "ori")
+            self._save_data(self.data_vel_reward, reward_data_fdlr, "vel")
+            self._save_data(self.data_force_reward, reward_data_fdlr, "force")
 
             # policy/controller data
             self._save_data(self.data_action, "policy_data", "action")
@@ -686,7 +703,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (klampt.model.trajectory Object):  trajectory
         """
-        milestones = np.array([self.ee_initial_pos, self._examination_start_xpos, self._examination_end_xpos])
+        milestones = np.array([self._examination_start_xpos, self._examination_end_xpos])
         self.num_waypoints = np.size(milestones, 0)
 
         return trajectory.Trajectory(milestones=milestones)
