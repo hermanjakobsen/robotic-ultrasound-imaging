@@ -137,7 +137,7 @@ class Ultrasound(SingleArmEnv):
         self.sigma = 0.01
 
         # settings for contact force running mean
-        self.alpha = 0.8    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
+        self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
 
         # reward configuration 
         self.reward_scale = reward_scale
@@ -329,12 +329,8 @@ class Ultrasound(SingleArmEnv):
         modality = f"{pf}proprio"       # Need to use this modality since proprio obs cannot be empty in GymWrapper
 
         @sensor(modality=modality)
-        def eef_contact_force_z_diff(obs_cache):
-            return self.sim.data.cfrc_ext[self.probe_id][-1] - self.goal_contact_z_force
-
-        @sensor(modality=modality)
         def eef_contact_force(obs_cache):
-            return self.sim.data.cfrc_ext[self.probe_id][-3:-1]
+            return self.sim.data.cfrc_ext[self.probe_id]
 
         @sensor(modality=modality)
         def eef_torque(obs_cache):
@@ -345,8 +341,12 @@ class Ultrasound(SingleArmEnv):
             return self.robots[0]._hand_vel
 
         @sensor(modality=modality)
-        def eef_mean_vel(obs_cache):
-            return self.vel_running_mean
+        def eef_contact_force_z_diff(obs_cache):
+            return self.z_contact_force_running_mean - self.goal_contact_z_force
+
+        @sensor(modality=modality)
+        def eef_vel_diff(obs_cache):
+            return self.vel_running_mean - self.vel_running_mean
 
         @sensor(modality=modality)
         def eef_pose_diff(obs_cache):
@@ -355,7 +355,7 @@ class Ultrasound(SingleArmEnv):
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        sensors += [eef_contact_force_z_diff, eef_contact_force, eef_torque, eef_vel, eef_mean_vel, eef_pose_diff]
+        sensors += [eef_contact_force, eef_torque, eef_vel, eef_contact_force_z_diff, eef_vel_diff, eef_pose_diff]
 
         # low-level object information
         if self.use_object_obs:
@@ -609,9 +609,9 @@ class Ultrasound(SingleArmEnv):
             terminated = True
 
         # Prematurely terminate if probe loses contact with torso
-        #if self.has_touched_torso and not self._check_probe_contact_with_torso():
-        #    print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
-        #    terminated = True
+        if self.has_touched_torso and not self._check_probe_contact_with_torso():
+            print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
+            terminated = True
 
         return terminated
 
