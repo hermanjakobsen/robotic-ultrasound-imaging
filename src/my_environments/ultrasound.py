@@ -349,7 +349,7 @@ class Ultrasound(SingleArmEnv):
 
         @sensor(modality=modality)
         def eef_vel_diff(obs_cache):
-            return self.vel_running_mean - self.vel_running_mean
+            return self.vel_running_mean - self.goal_velocity
 
         @sensor(modality=modality)
         def eef_pose_diff(obs_cache):
