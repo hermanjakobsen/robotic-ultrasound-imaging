@@ -134,7 +134,7 @@ class Ultrasound(SingleArmEnv):
 
         # settings for joint initialization noise (Gaussian)
         self.mu = 0
-        self.sigma = 0.01
+        self.sigma = 0.00
 
         # settings for contact force running mean
         self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
@@ -166,7 +166,7 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.028     # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
         self.y_range = 0.11               # how large the torso is from center to end in y-direction
         self.grid_pts = 50                # how many points in the grid
@@ -224,7 +224,7 @@ class Ultrasound(SingleArmEnv):
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
 
-        probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]        
+        probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]       
 
         # position
         self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
@@ -423,7 +423,7 @@ class Ultrasound(SingleArmEnv):
         # initialize trajectory step
         self.initial_traj_step = np.random.default_rng().uniform(low=0, high=self.num_waypoints - 1)
         self.traj_step = self.initial_traj_step                                    # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
-
+        
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
@@ -723,7 +723,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (numpy.array):  grid. First row contains x-coordinates and the second row contains y-coordinates.
         """
-        x = np.linspace(-self.x_range + self._torso_xpos[0], self.x_range + self._torso_xpos[0], num=self.grid_pts)
+        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.02, self.x_range + self._torso_xpos[0], num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
         y = np.linspace(-self.y_range + self._torso_xpos[1], self.y_range + self._torso_xpos[1], num=self.grid_pts)
 
         x = np.array([x])
