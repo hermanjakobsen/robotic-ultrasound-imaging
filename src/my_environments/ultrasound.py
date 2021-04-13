@@ -18,6 +18,8 @@ from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.observables import Observable, sensor
 from robosuite.models.base import MujocoModel
 
+import robosuite.utils.transform_utils as T
+
 from my_models.objects import SoftTorsoObject, BoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
@@ -127,6 +129,9 @@ class Ultrasound(SingleArmEnv):
         assert robots == "UR5e" or robots == "Panda", \
             "Robot must be UR5e or Panda!"
 
+        assert "OSC" in controller_configs["type"], \
+            "The robot controller must be of type OSC"
+
         # settings for table top
         self.table_full_size = table_full_size
         self.table_friction = table_friction
@@ -218,8 +223,6 @@ class Ultrasound(SingleArmEnv):
         """
 
         reward = 0.
-
-        self.traj_pt = self.trajectory.eval(self.traj_step)
 
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
@@ -419,7 +422,7 @@ class Ultrasound(SingleArmEnv):
 
         # create trajectory
         self.trajectory = self.get_trajectory()
-
+        
         # initialize trajectory step
         self.initial_traj_step = np.random.default_rng().uniform(low=0, high=self.num_waypoints - 1)
         self.traj_step = self.initial_traj_step                                    # step at which to evaluate trajectory. Must be in interval [0, num_waypoints - 1]
@@ -427,6 +430,10 @@ class Ultrasound(SingleArmEnv):
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
+
+        # initialize controller's trajectory
+        self.robots[0].controller.traj_pos = self.traj_pt
+        self.robots[0].controller.traj_ori = T.quat2axisangle(self.goal_quat)
 
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
@@ -490,6 +497,12 @@ class Ultrasound(SingleArmEnv):
         # Convert to trajectory timstep
         normalizer = (self.horizon / (self.num_waypoints - 1))                  # equally many timesteps to reach each waypoint
         self.traj_step = self.timestep / normalizer + self.initial_traj_step
+
+        # update trajectory point
+        self.traj_pt = self.trajectory.eval(self.traj_step)
+
+        # update controller's trajectory
+        self.robots[0].controller.traj_pos = self.traj_pt
 
         # update velocity running mean (simple moving average)
         self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
