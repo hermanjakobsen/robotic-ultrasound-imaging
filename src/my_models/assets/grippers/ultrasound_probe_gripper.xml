@@ -1,13 +1,13 @@
 <mujoco model="ultrasound_probe_gripper">
   <asset>
-    <mesh file="meshes/ultrasound_probe/Probe_holder_C3_8_probe_clean.stl" name="probe_mesh" scale="0.001 0.001 0.001"/>
+    <mesh file="meshes/ultrasound_probe_mesh.stl" name="probe_mesh" scale="0.001 0.001 0.001"/>
   </asset>
   <worldbody>
-      <body name="gripper_base" pos="-0.004 -0.063 0.12" quat="0 0 0.7071 -0.7071">
+      <body name="gripper_base" pos="-0.004 -0.063 0.128" quat="1 0 0 0">
         <site name="ft_frame" size="0.01 0.01 0.01" rgba="1 0 0 1" type="sphere" group="1"/> 
         <geom name="probe_collision" mesh="probe_mesh" type="mesh" mass="1" friction="0.0001 0.005 0.0001" group="0"/>
         <geom name="probe_visual" mesh="probe_mesh" type="mesh" group="1"/>
-
+        
         <site name="grip_site" size="0.01 0.01 0.01" rgba="1 0 0 0.5" type="sphere" group="1"/>
         <site name="grip_site_cylinder" size="0.005 0.01" rgba="0 1 0 0.3" type="cylinder" group="1"/>
     </body>
