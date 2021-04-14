@@ -171,9 +171,9 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.044 #0.046     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
-        self.y_range = 0.11               # how large the torso is from center to end in y-direction
+        self.y_range = 0.08 #0.11               # how large the torso is from center to end in y-direction
         self.grid_pts = 50                # how many points in the grid
                                             
         # whether to use ground-truth object states
