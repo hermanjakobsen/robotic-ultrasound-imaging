@@ -718,8 +718,10 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (klampt.model.trajectory Object):  trajectory
         """
-        start_point = self._get_waypoint()
-        end_point = self._get_waypoint()
+        grid = self._get_torso_grid()
+
+        start_point = self._get_waypoint(grid)
+        end_point = self._get_waypoint(grid)
 
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
@@ -745,7 +747,7 @@ class Ultrasound(SingleArmEnv):
         return np.concatenate((x, y))
 
     
-    def _get_waypoint(self):
+    def _get_waypoint(self, grid):
         """
         Extracts a random waypoint from the grid.
 
@@ -754,9 +756,6 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (numpy.array):  waypoint
         """
-
-        grid = self._get_torso_grid()
-
         x_pos = np.random.choice(grid[0])
         y_pos = np.random.choice(grid[1])
         z_pos = self._torso_xpos[-1] + self.top_torso_offset
