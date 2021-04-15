@@ -850,7 +850,7 @@ class Ultrasound(SingleArmEnv):
 
         while os.path.exists(path):
             idx += 1
-            path = os.path.join(fldr, filename + "_" + str(idx))
+            path = os.path.join(fldr, filename + "_" + str(idx) + ".csv")
 
         pd.DataFrame(data).to_csv(path, header=None, index=None)
 
