@@ -119,13 +119,18 @@ def plot_controller_delta(action_filename, time_filename):
     action = pd.read_csv(action_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
+    # tracking mode
+    if len(action.columns) == 6:
+        print("Joint commands are not part of the action space for this controller mode")
+        return
+
     controller_delta = action.iloc[:, -6:]
     controller_delta.columns = [i for i in range(len(controller_delta.columns))]  # reset column indices
 
     labels = ["x", "y", "z", "ax", "ay", "az"]
 
     fig , axs = plt.subplots(len(controller_delta.columns))
-    fig.suptitle("Controller action")
+    fig.suptitle("Joint commands")
     for i in range(len(controller_delta.columns)):
         axs[i].plot(time, controller_delta[i])
         axs[i].set_title(labels[i])
@@ -145,23 +150,31 @@ def plot_controller_gains(action_filename, time_filename):
         damping_ratio = action.iloc[:, :6]
         kp = action.iloc[:, 6:12]
 
-        # reset column indices
-        damping_ratio.columns = [i for i in range(len(damping_ratio.columns))]
-        fig1, axs1 = plt.subplots(len(damping_ratio.columns))
-        fig1.suptitle("Controller damping ratio")
-        for i in range(len(damping_ratio.columns)):
-            axs1[i].plot(time, damping_ratio[i], color=colors[i])
-            axs1[i].set_title(labels[i])
-
-        plt.xlabel("Completed episode (%)")
-    
     # variable_kp mode
     elif len(action.columns) == 12:
         kp = action.iloc[:, :6]
+        damping_ratio = 2 * np.sqrt(kp)
+
+    # tracking mode
+    elif len(action.columns) == 6:
+        kp = action
+        damping_ratio = 2 * np.sqrt(kp)
 
     else:
         print("Unknown action dim!")
         return
+
+    # reset column indices
+    damping_ratio.columns = [i for i in range(len(damping_ratio.columns))]
+
+    fig1, axs1 = plt.subplots(len(damping_ratio.columns))
+    fig1.suptitle("Controller damping ratio")
+    for i in range(len(damping_ratio.columns)):
+        axs1[i].plot(time, damping_ratio[i], color=colors[i])
+        axs1[i].set_title(labels[i])
+
+    plt.xlabel("Completed episode (%)")
+    
 
     # reset column indices
     kp.columns = [i for i in range(len(kp.columns))]  
