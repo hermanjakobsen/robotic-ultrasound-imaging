@@ -148,42 +148,55 @@ def plot_controller_gains(action_filename, time_filename):
     # variable mode
     if len(action.columns) == 18:
         damping_ratio = action.iloc[:, :6]
+        damping_ratio.columns = [i for i in range(len(damping_ratio.columns))]         # reset column indices
+
         kp = action.iloc[:, 6:12]
+        kp.columns = [i for i in range(len(kp.columns))]         # reset column indices
+
+        kd = 2 * np.sqrt(kp)
+        kd = kd.multiply(damping_ratio)
+
+        fig1, axs1 = plt.subplots(len(damping_ratio.columns))
+        fig1.suptitle("Controller damping ratio")
+        for i in range(len(damping_ratio.columns)):
+            axs1[i].plot(time, damping_ratio[i], color=colors[i])
+            axs1[i].set_title(labels[i])
+
+        plt.xlabel("Completed episode (%)")
 
     # variable_kp mode
     elif len(action.columns) == 12:
         kp = action.iloc[:, :6]
-        damping_ratio = 2 * np.sqrt(kp)
+        kd = 2 * np.sqrt(kp)
 
     # tracking mode
     elif len(action.columns) == 6:
         kp = action
-        damping_ratio = 2 * np.sqrt(kp)
+        kd = 2 * np.sqrt(kp)
 
     else:
         print("Unknown action dim!")
         return
 
     # reset column indices
-    damping_ratio.columns = [i for i in range(len(damping_ratio.columns))]
+    kd.columns = [i for i in range(len(kd.columns))] 
 
-    fig1, axs1 = plt.subplots(len(damping_ratio.columns))
-    fig1.suptitle("Controller damping ratio")
-    for i in range(len(damping_ratio.columns)):
-        axs1[i].plot(time, damping_ratio[i], color=colors[i])
-        axs1[i].set_title(labels[i])
+    fig2, axs2 = plt.subplots(len(kd.columns))
+    fig2.suptitle("Controller Kd")
+    for i in range(len(kd.columns)):
+        axs2[i].plot(time, kd[i], color=colors[i])
+        axs2[i].set_title(labels[i])
 
     plt.xlabel("Completed episode (%)")
-    
 
     # reset column indices
-    kp.columns = [i for i in range(len(kp.columns))]  
+    kp.columns = [i for i in range(len(kp.columns))] 
 
-    fig2, axs2 = plt.subplots(len(kp.columns))
-    fig2.suptitle("Controller gains (Kp)")
+    fig3, axs3 = plt.subplots(len(kp.columns))
+    fig3.suptitle("Controller Kp")
     for i in range(len(kp.columns)):
-        axs2[i].plot(time, kp[i], color=colors[i])
-        axs2[i].set_title(labels[i])
+        axs3[i].plot(time, kp[i], color=colors[i])
+        axs3[i].set_title(labels[i])
 
     plt.xlabel("Completed episode (%)")
 
