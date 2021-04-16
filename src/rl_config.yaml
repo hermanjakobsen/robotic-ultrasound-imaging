@@ -1,11 +1,11 @@
 seed: 3
-training: True   # Whether to train a new model or not
+training: True   # Whether to train a model or not
 
 # Settings for stable-baselines RL algorithm
 sb_config:
-  total_timesteps: 8.0e+6
-  check_pt_interval: 1.0e+5
-  num_cpu: 4
+  total_timesteps: 5.0e+6
+  check_pt_interval: 1.0e+6
+  num_cpu: 64
 
 # Policy settings
 sb_policy:
@@ -24,7 +24,7 @@ robosuite:
   has_offscreen_renderer: False
   render_camera: null
   control_freq: 100
-  horizon: 1000
+  horizon: 500
   camera_names: "agentview"
   camera_heights: 48
   camera_widths: 48
@@ -38,8 +38,8 @@ robosuite:
     output_min: [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5]
     kp: 150
     damping_ratio: 1
-    impedance_mode: "variable"
-    kp_limits: [10, 300]
+    impedance_mode: "tracking"
+    kp_limits: [1, 500]
     damping_ratio_limits: [0, 2]
     position_limits: null
     orientation_limits: null
@@ -48,6 +48,7 @@ robosuite:
     interpolation: "linear"
     ramp_ratio: 0.2
   early_termination: True
+  save_data: False
 
 # Settings used for file handling and logging (save/load destination etc)
 file_handling:
@@ -59,5 +60,8 @@ file_handling:
   # Loading of trained models
   load_model_folder: "trained_models"
   load_model_filename: "test"
+  # Path to model which should be continued to train
+  continue_training_model_folder: "trained_models"
+  continue_training_model_filename: null         # is null when training a new model
 
 

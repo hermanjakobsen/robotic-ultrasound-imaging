@@ -90,6 +90,9 @@ if __name__ == '__main__':
     load_model_folder = file_handling["load_model_folder"]
     load_model_filename = file_handling["load_model_filename"]
 
+    continue_training_model_folder = file_handling["continue_training_model_folder"]
+    continue_training_model_filename = file_handling["continue_training_model_filename"]
+
     # Join paths
     save_model_path = os.path.join(save_model_folder, save_model_filename)
     save_vecnormalize_path = os.path.join(save_model_folder, 'vec_normalize_' + save_model_filename + '.pkl')
@@ -103,17 +106,39 @@ if __name__ == '__main__':
     # RL pipeline
     if training:
         env = SubprocVecEnv([make_robosuite_env(env_id, env_options, i, seed) for i in range(num_cpu)])
-        env = VecNormalize(env)
 
         # Create callback
         checkpoint_callback = CheckpointCallback(save_freq=check_pt_interval, save_path='./checkpoints/', 
                                 name_prefix=save_model_filename, verbose=2)
+        
+        # Train new model
+        if continue_training_model_filename is None:
 
-        # Create model
-        model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
-       
+            # Normalize environment
+            env = VecNormalize(env)
+
+            # Create model
+            model = PPO(policy_type, env, policy_kwargs=policy_kwargs, tensorboard_log=tb_log_folder, verbose=1)
+
+            print("Created a new model")
+
+        # Continual training
+        else:
+
+            # Join file paths
+            continue_training_model_path = os.path.join(continue_training_model_folder, continue_training_model_filename)
+            continue_training_vecnormalize_path = os.path.join(continue_training_model_folder, 'vec_normalize_' + continue_training_model_filename + '.pkl')
+
+            print(f"Continual training on model located at {continue_training_model_path}")
+
+            # Load normalized env 
+            env = VecNormalize.load(continue_training_vecnormalize_path, env)
+
+            # Load model
+            model = PPO.load(continue_training_model_path, env=env)
+
         # Training
-        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback)
+        model.learn(total_timesteps=training_timesteps, tb_log_name=tb_log_name, callback=checkpoint_callback, reset_num_timesteps=True)
 
         # Save trained model
         model.save(save_model_path)
