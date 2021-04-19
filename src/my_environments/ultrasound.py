@@ -163,7 +163,7 @@ class Ultrasound(SingleArmEnv):
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
         self.goal_velocity = 0.05           # norm of velocity vector
-        self.goal_contact_z_force = 5       # (N)  
+        self.goal_contact_z_force = 5.5     # (N)  
 
         # early termination configuration
         self.pos_error_threshold = 0.35
@@ -171,7 +171,7 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.044 #0.046     # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.042 #0.046     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
         self.y_range = 0.08 #0.11               # how large the torso is from center to end in y-direction
         self.grid_pts = 50                # how many points in the grid
