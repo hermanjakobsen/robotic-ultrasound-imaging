@@ -149,21 +149,21 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
 
         # error multipliers
-        self.pos_error_mul = 25
+        self.pos_error_mul = 50
         self.ori_error_mul = 0.2
-        self.vel_error_mul = 5
-        self.force_error_mul = 0.4
+        self.vel_error_mul = 45
+        self.force_error_mul = 0.7
 
         # reward multipliers
         self.pos_reward_mul = 5
         self.ori_reward_mul = 1
-        self.vel_reward_mul = 2
+        self.vel_reward_mul = 1
         self.force_reward_mul = 3
 
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
-        self.goal_velocity = 0.05           # norm of velocity vector
-        self.goal_contact_z_force = 5.5     # (N)  
+        self.goal_velocity = 0.04           # norm of velocity vector
+        self.goal_contact_z_force = 5       # (N)  
 
         # early termination configuration
         self.pos_error_threshold = 0.35
@@ -171,9 +171,9 @@ class Ultrasound(SingleArmEnv):
 
         # examination trajectory
         self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
-        self.top_torso_offset = 0.042 #0.046     # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
-        self.y_range = 0.08 #0.11               # how large the torso is from center to end in y-direction
+        self.y_range = 0.05 #0.11               # how large the torso is from center to end in y-direction
         self.grid_pts = 50                # how many points in the grid
                                             
         # whether to use ground-truth object states
@@ -227,8 +227,6 @@ class Ultrasound(SingleArmEnv):
         ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
         ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
 
-        probe_contact_z_force = self.sim.data.cfrc_ext[self.probe_id][-1]       
-
         # position
         self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
         self.pos_reward = self.pos_reward_mul * np.exp(-1 * np.linalg.norm(self.pos_error))
@@ -238,11 +236,11 @@ class Ultrasound(SingleArmEnv):
         self.ori_reward = self.ori_reward_mul * np.exp(-1 * self.ori_error)
 
         # velocity
-        self.vel_error =  np.square(self.vel_error_mul * (self.robots[0]._hand_vel - self.vel_running_mean))
+        self.vel_error =  np.square(self.vel_error_mul * (self.vel_running_mean - self.goal_velocity))
         self.vel_reward = self.vel_reward_mul * np.exp(-1 * np.linalg.norm(self.vel_error))
         
         # force
-        self.force_error = np.square(self.force_error_mul * (probe_contact_z_force - self.goal_contact_z_force))
+        self.force_error = np.square(self.force_error_mul * (self.z_contact_force_running_mean - self.goal_contact_z_force))
         self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
 
         # add rewards
@@ -336,7 +334,7 @@ class Ultrasound(SingleArmEnv):
 
         @sensor(modality=modality)
         def eef_contact_force(obs_cache):
-            return self.sim.data.cfrc_ext[self.probe_id]
+            return self.sim.data.cfrc_ext[self.probe_id][-3:]
 
         @sensor(modality=modality)
         def eef_torque(obs_cache):
@@ -362,27 +360,6 @@ class Ultrasound(SingleArmEnv):
             return pose_error
 
         sensors += [eef_contact_force, eef_torque, eef_vel, eef_contact_force_z_diff, eef_vel_diff, eef_pose_diff]
-
-        # low-level object information
-        if self.use_object_obs:
-            modality = "object"
-
-            @sensor(modality=modality)
-            def torso_pos(obs_cache):
-                pos = self._torso_xpos
-                pos[-1] = pos[-1] + self.top_torso_offset + 0.02
-                return pos
-               
-            @sensor(modality=modality)
-            def torso_quat(obs_cache):
-                return convert_quat(np.array(self.sim.data.body_xquat[self.torso_body_id]), to="xyzw")
-
-            @sensor(modality=modality)
-            def probe_to_torso_pos(obs_cache):
-                return obs_cache[f"{pf}eef_pos"] - obs_cache["torso_pos"] if \
-                    f"{pf}eef_pos" in obs_cache and "torso_pos" in obs_cache else np.zeros(3)
-
-            sensors += [torso_pos, torso_quat, probe_to_torso_pos]
 
         names = [s.__name__ for s in sensors]
 
@@ -738,7 +715,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (numpy.array):  grid. First row contains x-coordinates and the second row contains y-coordinates.
         """
-        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.02, self.x_range + self._torso_xpos[0], num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
+        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.03, self.x_range + self._torso_xpos[0], num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
         y = np.linspace(-self.y_range + self._torso_xpos[1], self.y_range + self._torso_xpos[1], num=self.grid_pts)
 
         x = np.array([x])
@@ -805,7 +782,7 @@ class Ultrasound(SingleArmEnv):
             (np.array):  position (x,y,z) given in robotics toolbox coordinates and frame
         """
         xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])[0]
-        zpos_offset = self.robots[0].robot_model.top_offset[-1]
+        zpos_offset = self.robots[0].robot_model.top_offset[-1] - 0.016
 
         # the numeric offset values have been found empirically, where they are chosen so that 
         # self._eef_xpos matches the desired position.
@@ -813,7 +790,7 @@ class Ultrasound(SingleArmEnv):
             return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
 
         if self.robots[0].name == "Panda":
-            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.11])
+            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
 
 
     def _add_noise_to_qpos(self, qpos, mu, sigma):
