@@ -166,7 +166,7 @@ class Ultrasound(SingleArmEnv):
         self.goal_contact_z_force = 5       # (N)  
 
         # early termination configuration
-        self.pos_error_threshold = 0.35
+        self.pos_error_threshold = 0.40
         self.ori_error_threshold = 0.10
 
         # examination trajectory
