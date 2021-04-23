@@ -149,7 +149,7 @@ class Ultrasound(SingleArmEnv):
         self.reward_shaping = reward_shaping
 
         # error multipliers
-        self.pos_error_mul = 50
+        self.pos_error_mul = 90
         self.ori_error_mul = 0.2
         self.vel_error_mul = 45
         self.force_error_mul = 0.7
@@ -166,7 +166,7 @@ class Ultrasound(SingleArmEnv):
         self.goal_contact_z_force = 5       # (N)  
 
         # early termination configuration
-        self.pos_error_threshold = 0.40
+        self.pos_error_threshold = 1.0
         self.ori_error_threshold = 0.10
 
         # examination trajectory
