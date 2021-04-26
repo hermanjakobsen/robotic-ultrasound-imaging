@@ -60,16 +60,16 @@ class HybridMotionForceController(Controller):
         self.C = np.linalg.inv(self.K)
 
         # Force control dynamics
-        self.K_Plambda = 45                       # force gain
+        self.K_Plambda = 1                       # force gain
         self.K_Dlambda = self.K_Plambda*0.001     # force damping
 
         # Position control dynamics
-        self.Pp = 60                         # x and y pos gain 
+        self.Pp = 1                         # x and y pos gain 
         self.Dp = self.Pp*0.1*0.5*0.5        # x and y pos damping
 
         # Orientation control dynamics
-        self.Po = 120                                   # orientation gain
-        self.Do = 40                                    # orientation damping
+        self.Po = 1                                   # orientation gain
+        self.Do = 1                                    # orientation damping
 
         self.K_Pr = np.array([[self.Pp, 0, 0, 0, 0],    # Stiffness matrix
                               [0, self.Pp, 0, 0, 0],
@@ -101,15 +101,15 @@ class HybridMotionForceController(Controller):
         # Initialize measurements
         self.z_force = 0                    # contact force in z-direction
         self.prev_z_force = 0
-        
         self.v = np.zeros(5)                # angular and linear velocity
 
 
 
     def _initialize_measurements(self):
         self.probe_id = self.sim.model.body_name2id(self.robot.gripper.root_body)
-        self.prev_z_force = self.sim.data.cfrc_ext[self.probe_id][-3:]
-        self.z_force = self.prev_z_force
+        self.z_force = self.sim.data.cfrc_ext[self.probe_id][-1]
+        self.prev_z_force = self.z_force
+        self.v = self.get_eef_velocity().reshape([5, 1])
 
 
     # Must be called in environment's reset function
@@ -130,9 +130,12 @@ class HybridMotionForceController(Controller):
             vec = -vec
         return -des_mat.dot(vec)
 
-    # Fetch the estimated external forces and torques (h_e / F_ext)
-    def construct_h_e(self, Fz):
-        return np.array([0,0,Fz,0,0,0])
+
+    # Fetch linear (excluding z) and angular velocity of eef
+    def get_eef_velocity(self):
+        lin_v = self.robot._hand_vel[:-1]
+        ang_v = self.robot._hand_ang_vel
+        return np.concatenate((lin_v, ang_v))
 
 
     # Fetch the derivative of the force
@@ -169,8 +172,9 @@ class HybridMotionForceController(Controller):
         S_f_inv = self.get_S_inv(S_f,C)
         K_dot = self.get_K_dot(S_f,S_f_inv,C)
 
-        lambda_dot = np.linalg.multi_dot([S_f_inv, K_dot, self.J_full, self.joint_vel])
-        #lambda_dot = self.get_lambda_dot()
+        #lambda_dot = np.linalg.multi_dot([S_f_inv, K_dot, self.J_full, self.joint_vel])
+
+        lambda_dot = self.get_lambda_dot()         
         lambda_a = f_d_ddot 
         lambda_b = np.array(np.dot(K_Dlambda,(f_d_dot-lambda_dot)))
         lambda_c = np.dot(K_Plambda,(f_d-z_force))
@@ -217,24 +221,27 @@ class HybridMotionForceController(Controller):
          
 
     def run_controller(self):
-        
+
         # eef measurements
+        self.z_force = self.sim.data.cfrc_ext[self.probe_id][-1]
+        self.v = self.get_eef_velocity().reshape([5, 1])
+        
         pos = self.ee_pos
         ori = T.convert_quat(T.mat2quat(self.ee_ori_mat), to="wxyz")    # (w, x, y, z) quaternion
-        self.z_force = 0    # [Placeholder]
-        self.v = np.zeros(5).reshape([5, 1]) # [Placeholder]
 
-        # torque computations
+        h_e = np.array([0, 0, self.z_force, 0, 0, 0])
+
+        # control law
         alpha_v = self.calculate_alpha_v(ori, self.r_d_ddot, self.r_d_dot, pos, self.p_d, self.v) 
-        #print(f"alpha_v: {alpha_v}")
         f_lambda = self.calculate_f_lambda(self.f_d_ddot, self.f_d_dot, self.f_d, self.S_f ,self.C, self.K_Dlambda, self.K_Plambda, self.z_force)
-        #print(f"f_lambda: {f_lambda}")
+
         alpha = self.calculate_alpha(self.S_v, alpha_v, self.C, self.S_f, -f_lambda)
-        #print(f"alpha: {alpha}")
         cartesian_inertia = np.linalg.inv(np.linalg.multi_dot([self.J_full, np.linalg.inv(self.mass_matrix), self.J_full.T]))
 
-         # NOTE MODIFIED FROM DEFAULT. Removed external forces and such
-        torque = np.array(np.linalg.multi_dot([self.J_full.T ,cartesian_inertia, alpha])).flatten() + self.torque_compensation
+        # torque computations
+        external_torque = np.dot(self.J_full.T, h_e).reshape([7,1])
+        torque = np.array(np.linalg.multi_dot([self.J_full.T ,cartesian_inertia, alpha])) + external_torque # NOTE MODIFIED FROM DEFAULT. Removed external forces and such
+        torque = torque.flatten()
 
         # update measurements
         self.prev_z_force = self.z_force
@@ -242,8 +249,23 @@ class HybridMotionForceController(Controller):
         # Always run superclass call for any cleanups at the end
         super().run_controller()
 
-        
         return torque
+
+
+    def update_initial_joints(self, initial_joints):
+        # First, update from the superclass method
+        super().update_initial_joints(initial_joints)
+
+        # We also need to reset the goal in case the old goals were set to the initial confguration
+        self.reset_goal()
+
+
+    def reset_goal(self):
+        """
+        Resets the goal to the current state of the robot
+        """
+        self.goal_ori = T.convert_quat(T.mat2quat(self.ee_ori_mat), to="wxyz")
+        self.p_d = np.array(self.ee_pos)[:-1]
 
 
     @property

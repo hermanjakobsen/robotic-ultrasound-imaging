@@ -129,8 +129,8 @@ class Ultrasound(SingleArmEnv):
         assert robots == "UR5e" or robots == "Panda", \
             "Robot must be UR5e or Panda!"
 
-        assert "OSC" in controller_configs["type"], \
-            "The robot controller must be of type OSC"
+        assert "OSC" or "HMFC" in controller_configs["type"], \
+            "The robot controller must be of type OSC or HMFC"
 
         # settings for table top
         self.table_full_size = table_full_size
@@ -170,7 +170,6 @@ class Ultrasound(SingleArmEnv):
         self.ori_error_threshold = 0.10
 
         # examination trajectory
-        self.traj_x_offset = 0.17         # offset from x_center of torso as to where to begin examination
         self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
         self.y_range = 0.05 #0.11               # how large the torso is from center to end in y-direction
@@ -407,6 +406,10 @@ class Ultrasound(SingleArmEnv):
         # set first trajectory point
         self.traj_pt = self.trajectory.eval(self.traj_step)
         self.traj_pt_vel = self.trajectory.deriv(self.traj_step)
+
+        # give controller access to robot (and its measurements)
+        if self.robots[0].controller.name == "HMFC":
+            self.robots[0].controller.set_robot(self.robots[0])
 
         # initialize controller's trajectory
         self.robots[0].controller.traj_pos = self.traj_pt
