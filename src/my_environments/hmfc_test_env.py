@@ -126,11 +126,11 @@ class HMFC(SingleArmEnv):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
 
-        assert robots == "UR5e" or robots == "Panda", \
-            "Robot must be UR5e or Panda!"
+        assert robots == "Panda", \
+            "Robot must be Panda!"
 
-        assert "OSC" or "HMFC" in controller_configs["type"], \
-            "The robot controller must be of type OSC or HMFC"
+        assert "HMFC" in controller_configs["type"], \
+            "The robot controller must be of type HMFC"
 
         # settings for table top
         self.table_full_size = table_full_size
@@ -435,29 +435,11 @@ class HMFC(SingleArmEnv):
         # initialize data collection
         if self.save_data:
             # simulation data
-            self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
-            self.data_ee_goal_vel = np.array(np.zeros(self.horizon))
-            self.data_ee_running_mean_vel = np.array(np.zeros(self.horizon))
-            self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
-            self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
-            self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_running_mean_contact_force = np.array(np.zeros(self.horizon))
-            self.data_is_contact = np.array(np.zeros(self.horizon))
-            self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
-            self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_ee_pos = np.array(np.zeros((self.horizon, 2)))
+            self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 2)))
+            self.data_ee_force = np.array(np.zeros(self.horizon))
+            self.data_ee_goal_force = np.array(np.zeros(self.horizon))
             self.data_time = np.array(np.zeros(self.horizon))
-
-            # reward data
-            self.data_pos_reward = np.array(np.zeros(self.horizon))
-            self.data_ori_reward = np.array(np.zeros(self.horizon))
-            self.data_vel_reward = np.array(np.zeros(self.horizon))
-            self.data_force_reward = np.array(np.zeros(self.horizon))
-
-            # policy/controller data
-            self.data_action = np.array(np.zeros((self.horizon, self.robots[0].action_dim)))
 
 
     def _post_action(self, action):
@@ -497,59 +479,26 @@ class HMFC(SingleArmEnv):
 
         # collect data
         if self.save_data:
+            controller = self.robots[0].controller
+
             # simulation data
-            self.data_ee_pos[self.timestep - 1] = self._eef_xpos
-            self.data_ee_goal_pos[self.timestep - 1] = self.traj_pt
-            self.data_ee_vel[self.timestep - 1] = self.robots[0]._hand_vel
-            self.data_ee_goal_vel[self.timestep - 1] = self.goal_velocity
-            self.data_ee_running_mean_vel[self.timestep -1] = self.vel_running_mean
-            self.data_ee_quat[self.timestep - 1] = self._eef_xquat
-            self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
-            self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
-            self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
-            self.data_ee_z_running_mean_contact_force[self.timestep - 1] = self.z_contact_force_running_mean
-            self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
-            self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
-            self.data_q_torques[self.timestep - 1] = self.robots[0].torques
+            self.data_ee_pos[self.timestep - 1] = self._eef_xpos[:-1]
+            self.data_ee_goal_pos[self.timestep - 1] = controller.p_d
+            self.data_ee_force[self.timestep - 1] = controller.z_force
+            self.data_ee_goal_force[self.timestep - 1] = controller.f_d
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
-            # reward data
-            self.data_pos_reward[self.timestep - 1] = self.pos_reward
-            self.data_ori_reward[self.timestep - 1] = self.ori_reward
-            self.data_vel_reward[self.timestep - 1] = self.vel_reward
-            self.data_force_reward[self.timestep - 1] = self.force_reward
-
-            # policy/controller data
-            self.data_action[self.timestep - 1] = action
         
         # save data
         if done and self.save_data:
             # simulation data
-            sim_data_fldr = "simulation_data"
+            sim_data_fldr = "hmfc_test_data"
             self._save_data(self.data_ee_pos, sim_data_fldr, "ee_pos")
             self._save_data(self.data_ee_goal_pos, sim_data_fldr, "ee_goal_pos")
-            self._save_data(self.data_ee_vel, sim_data_fldr, "ee_vel")
-            self._save_data(self.data_ee_goal_vel, sim_data_fldr, "ee_goal_vel")
-            self._save_data(self.data_ee_running_mean_vel, sim_data_fldr, "ee_running_mean_vel")
-            self._save_data(self.data_ee_quat, sim_data_fldr, "ee_quat")
-            self._save_data(self.data_ee_desired_quat, sim_data_fldr, "ee_desired_quat")
-            self._save_data(self.data_ee_z_contact_force, sim_data_fldr, "ee_z_contact_force")
-            self._save_data(self.data_ee_z_desired_contact_force, sim_data_fldr, "ee_z_desired_contact_force")
-            self._save_data(self.data_ee_z_running_mean_contact_force, sim_data_fldr, "ee_z_running_mean_contact_force")
-            self._save_data(self.data_is_contact, sim_data_fldr, "is_contact")
-            self._save_data(self.data_q_pos, sim_data_fldr, "q_pos")
-            self._save_data(self.data_q_torques, sim_data_fldr, "q_torques")
+            self._save_data(self.data_ee_force, sim_data_fldr, "ee_force")
+            self._save_data(self.data_ee_goal_force, sim_data_fldr, "ee_goal_force")
             self._save_data(self.data_time, sim_data_fldr, "time")
 
-            # reward data
-            reward_data_fdlr = "reward_data"
-            self._save_data(self.data_pos_reward, reward_data_fdlr, "pos")
-            self._save_data(self.data_ori_reward, reward_data_fdlr, "ori")
-            self._save_data(self.data_vel_reward, reward_data_fdlr, "vel")
-            self._save_data(self.data_force_reward, reward_data_fdlr, "force")
-
-            # policy/controller data
-            self._save_data(self.data_action, "policy_data", "action")
 
 
         return reward, done, info

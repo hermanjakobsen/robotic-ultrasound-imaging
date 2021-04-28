@@ -201,3 +201,37 @@ def plot_controller_gains(action_filename, time_filename):
     plt.xlabel("Completed episode (%)")
 
     plt.show()
+
+
+def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
+    pos = pd.read_csv(pos_filename, header=None) 
+    pos_des = pd.read_csv(pos_desired_filename, header=None)
+    time = pd.read_csv(time_filename, header=None)
+
+    labels = ["x", "y"]
+    labels_des = ["x_goal", "y_goal"]               # labels for desired values
+
+    plt.figure()
+    for i in range(len(pos.columns)):
+        plt.plot(time, pos[i], label=labels[i])
+        plt.plot(time, pos_des[i], "--", label=labels_des[i])
+
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("End-effector position")
+
+    plt.show()
+
+def hmfc_plot_z_force(force_filename, desired_force_filename, time_filename):
+    force = pd.read_csv(force_filename, header=None)
+    des_force = pd.read_csv(desired_force_filename, header=None)
+    time = pd.read_csv(time_filename, header=None) 
+
+    plt.figure()
+    plt.plot(time, force, label="force")
+    plt.plot(time, des_force, "--", label="goal_force")
+
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("z force")
+    plt.show()
