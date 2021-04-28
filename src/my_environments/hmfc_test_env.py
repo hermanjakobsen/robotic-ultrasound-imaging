@@ -26,7 +26,7 @@ from my_models.arenas import UltrasoundArena
 from utils.quaternion import distance_quat, difference_quat
 
 
-class Ultrasound(SingleArmEnv):
+class HMFC(SingleArmEnv):
     """
     This class corresponds to the ultrasound task for a single robot arm.
 

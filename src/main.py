@@ -6,13 +6,14 @@ import numpy as np
 from robosuite.environments.base import register_env
 import robosuite.utils.transform_utils as T
 
-from my_environments import Ultrasound, FetchPush
+from my_environments import Ultrasound, FetchPush, HMFC
 from my_models.grippers import UltrasoundProbeGripper
 from utils.common import register_gripper, get_elements_in_obs
 import utils.plot as plt
 
 register_env(Ultrasound)
 register_env(FetchPush)
+register_env(HMFC)
 register_gripper(UltrasoundProbeGripper)
 
 
@@ -79,7 +80,7 @@ def run_simulation():
 
 
 def test_hmfc():
-    env_id = "Ultrasound"
+    env_id = "HMFC"
 
     env_options = {}
     env_options["robots"] = "Panda"
@@ -98,7 +99,7 @@ def test_hmfc():
     env_options["render_camera"] = None
     env_options["use_camera_obs"] = False
     env_options["use_object_obs"] = False
-    env_options["horizon"] = 500
+    env_options["horizon"] = 1000
 
     env = suite.make(env_id, **env_options)
 
@@ -134,5 +135,5 @@ def plot_data(run_num):
 
 #run_simulation()
 #test_hmfc()
-plot_data(15)
+#plot_data(15)
 
