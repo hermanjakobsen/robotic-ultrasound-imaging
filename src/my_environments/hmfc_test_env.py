@@ -17,14 +17,11 @@ from robosuite.models.tasks import ManipulationTask
 from robosuite.utils.placement_samplers import UniformRandomSampler
 from robosuite.utils.observables import Observable, sensor
 from robosuite.models.base import MujocoModel
+from robosuite.models.arenas import EmptyArena
 
 import robosuite.utils.transform_utils as T
 
-from my_models.objects import SoftTorsoObject, BoxObject
-from my_models.tasks import UltrasoundTask
-from my_models.arenas import UltrasoundArena
-from utils.quaternion import distance_quat, difference_quat
-
+from my_models.objects import BoxObject
 
 class HMFC(SingleArmEnv):
     """
@@ -102,10 +99,8 @@ class HMFC(SingleArmEnv):
         table_full_size=(0.8, 0.8, 0.05),
         table_friction=100*(1., 5e-3, 1e-4),
         use_camera_obs=True,
-        use_object_obs=True,
         reward_scale=1.0,
         reward_shaping=False,
-        placement_initializer=None,
         has_renderer=False,
         has_offscreen_renderer=True,
         render_camera="frontview",
@@ -124,66 +119,21 @@ class HMFC(SingleArmEnv):
         save_data=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
-            "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
+            "Tried to specify gripper other than UltrasoundProbeGripper in HMFC environment!"
 
         assert robots == "Panda", \
             "Robot must be Panda!"
 
         assert "HMFC" in controller_configs["type"], \
             "The robot controller must be of type HMFC"
-
-        # settings for table top
-        self.table_full_size = table_full_size
-        self.table_friction = table_friction
-        self.table_offset = np.array((0, 0, 0.8))
-
-        # settings for joint initialization noise (Gaussian)
-        self.mu = 0
-        self.sigma = 0.00
-
-        # settings for contact force running mean
-        self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
-
-        # reward configuration 
-        self.reward_scale = reward_scale
-        self.reward_shaping = reward_shaping
-
-        # error multipliers
-        self.pos_error_mul = 90
-        self.ori_error_mul = 0.2
-        self.vel_error_mul = 45
-        self.force_error_mul = 0.7
-
-        # reward multipliers
-        self.pos_reward_mul = 5
-        self.ori_reward_mul = 1
-        self.vel_reward_mul = 1
-        self.force_reward_mul = 3
-
-        # desired states
-        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
-        self.goal_velocity = 0.04           # norm of velocity vector
-        self.goal_contact_z_force = 5       # (N)  
-
-        # early termination configuration
-        self.pos_error_threshold = 1.0
-        self.ori_error_threshold = 0.10
-
-        # examination trajectory
-        self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
-        self.x_range = 0.15               # how large the torso is from center to end in x-direction
-        self.y_range = 0.05 #0.11               # how large the torso is from center to end in y-direction
-        self.grid_pts = 50                # how many points in the grid
-                                            
-        # whether to use ground-truth object states
-        self.use_object_obs = use_object_obs
-
-        # object placement initializer
-        self.placement_initializer = placement_initializer
+        
 
         # misc settings
         self.early_termination = early_termination
         self.save_data = save_data
+
+        self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
+
 
         super().__init__(
             robots=robots,
@@ -223,27 +173,6 @@ class HMFC(SingleArmEnv):
 
         reward = 0.
 
-        ee_current_ori = convert_quat(self._eef_xquat, to="wxyz")   # (w, x, y, z) quaternion
-        ee_desired_ori = convert_quat(self.goal_quat, to="wxyz")
-
-        # position
-        self.pos_error = np.square(self.pos_error_mul * (self._eef_xpos[0:-1] - self.traj_pt[0:-1]))
-        self.pos_reward = self.pos_reward_mul * np.exp(-1 * np.linalg.norm(self.pos_error))
-
-        # orientation
-        self.ori_error = self.ori_error_mul * distance_quat(ee_current_ori, ee_desired_ori)
-        self.ori_reward = self.ori_reward_mul * np.exp(-1 * self.ori_error)
-
-        # velocity
-        self.vel_error =  np.square(self.vel_error_mul * (self.vel_running_mean - self.goal_velocity))
-        self.vel_reward = self.vel_reward_mul * np.exp(-1 * np.linalg.norm(self.vel_error))
-        
-        # force
-        self.force_error = np.square(self.force_error_mul * (self.z_contact_force_running_mean - self.goal_contact_z_force))
-        self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
-
-        # add rewards
-        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward)
 
         return reward
 
@@ -254,42 +183,20 @@ class HMFC(SingleArmEnv):
         """
         super()._load_model()
 
-        # Adjust base pose accordingly
-        xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
-        self.robots[0].robot_model.set_base_xpos(xpos)
-
         # load model for table top workspace
-        mujoco_arena = UltrasoundArena()
+        mujoco_arena = EmptyArena()
 
         # Arena always gets set to zero origin
         mujoco_arena.set_origin([0, 0, 0])
 
         # initialize objects of interest
-        self.torso = SoftTorsoObject(name="torso")
         self.cube = BoxObject(name="cube")
 
-        # Create placement initializer
-        if self.placement_initializer is not None:
-            self.placement_initializer.reset()
-           # self.placement_initializer.add_objects(self.torso)
-        else:
-            self.placement_initializer = UniformRandomSampler(
-                name="ObjectSampler",
-                mujoco_objects=[],
-                x_range=[0.30, 0.30], #[-0.12, 0.12],
-                y_range=[0.30, 0.30], #[-0.12, 0.12],
-                rotation=None,
-                ensure_object_boundary_in_range=False,
-                ensure_valid_placement=True,
-                reference_pos=self.table_offset,
-                z_offset=0.005,
-            )
-
         # task includes arena, robot, and objects of interest
-        self.model = UltrasoundTask(
+        self.model = ManipulationTask(
             mujoco_arena=mujoco_arena,
             mujoco_robots=[robot.robot_model for robot in self.robots], 
-            mujoco_objects=[self.torso, self.cube]
+            mujoco_objects=[self.cube]
         )
 
 
@@ -302,7 +209,6 @@ class HMFC(SingleArmEnv):
         super()._setup_references()
 
         # additional object references from this env
-        self.torso_body_id = self.sim.model.body_name2id(self.torso.root_body)
         self.probe_id = self.sim.model.body_name2id(self.robots[0].gripper.root_body)
         
 
@@ -315,62 +221,6 @@ class HMFC(SingleArmEnv):
         """
         observables = super()._setup_observables()
 
-        pf = self.robots[0].robot_model.naming_prefix
-
-        # Remove unnecessary observables
-        del observables[pf + "joint_pos"]
-        del observables[pf + "joint_pos_cos"]
-        del observables[pf + "joint_pos_sin"]
-        del observables[pf + "joint_vel"]
-        del observables[pf + "gripper_qvel"]
-        del observables[pf + "gripper_qpos"]
-        del observables[pf + "eef_pos"]
-        del observables[pf + "eef_quat"]
-
-        sensors = []
-
-        # probe information
-        modality = f"{pf}proprio"       # Need to use this modality since proprio obs cannot be empty in GymWrapper
-
-        @sensor(modality=modality)
-        def eef_contact_force(obs_cache):
-            return self.sim.data.cfrc_ext[self.probe_id][-3:]
-
-        @sensor(modality=modality)
-        def eef_torque(obs_cache):
-            return self.robots[0].ee_torque
-
-        @sensor(modality=modality)
-        def eef_vel(obs_cache):
-            return self.robots[0]._hand_vel
-
-        @sensor(modality=modality)
-        def eef_contact_force_z_diff(obs_cache):
-            return self.z_contact_force_running_mean - self.goal_contact_z_force
-
-        @sensor(modality=modality)
-        def eef_vel_diff(obs_cache):
-            return self.vel_running_mean - self.goal_velocity
-
-        @sensor(modality=modality)
-        def eef_pose_diff(obs_cache):
-            pos_error = self._eef_xpos - self.traj_pt
-            quat_error = difference_quat(self._eef_xquat, self.goal_quat)
-            pose_error = np.concatenate((pos_error, quat_error))
-            return pose_error
-
-        sensors += [eef_contact_force, eef_torque, eef_vel, eef_contact_force_z_diff, eef_vel_diff, eef_pose_diff]
-
-        names = [s.__name__ for s in sensors]
-
-        # Create observables
-        for name, s in zip(names, sensors):
-            observables[name] = Observable(
-                name=name,
-                sensor=s,
-                sampling_rate=self.control_freq,
-            )
-
         return observables
 
 
@@ -379,20 +229,6 @@ class HMFC(SingleArmEnv):
         Resets simulation internal configurations.
         """
         super()._reset_internal()
-
-        # Reset all object positions using initializer sampler if we're not directly loading from an xml
-        if not self.deterministic_reset:
-
-            # Sample from the placement initializer for all objects
-            object_placements = self.placement_initializer.sample()
-
-            # Loop through all objects and reset their positions
-            for obj_pos, _, obj in object_placements.values():
-                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array([0.5, 0.5, -0.5, -0.5])]))
-                self.sim.forward()      # update sim states
-                
-        # says if probe has been in touch with torso
-        self.has_touched_torso = False
 
         # initial position of end-effector
         self.ee_initial_pos = self._eef_xpos
@@ -418,7 +254,6 @@ class HMFC(SingleArmEnv):
 
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
-        init_qpos = self._add_noise_to_qpos(init_qpos, self.mu, self.sigma)
 
         # override initial robot joint positions
         self.robots[0].set_robot_joint_positions(init_qpos)
@@ -426,18 +261,13 @@ class HMFC(SingleArmEnv):
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
 
-        # initialize running mean of velocity 
-        self.vel_running_mean = np.linalg.norm(self.robots[0]._hand_vel)
-
-        # initialize running mean of contact force
-        self.z_contact_force_running_mean = self.sim.data.cfrc_ext[self.probe_id][-1]
-
         # initialize data collection
         if self.save_data:
             # simulation data
             self.data_ee_pos = np.array(np.zeros((self.horizon, 2)))
             self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 2)))
             self.data_ee_force = np.array(np.zeros(self.horizon))
+            self.data_ee_force_mean = np.array(np.zeros(self.horizon))
             self.data_ee_goal_force = np.array(np.zeros(self.horizon))
             self.data_time = np.array(np.zeros(self.horizon))
 
@@ -467,12 +297,6 @@ class HMFC(SingleArmEnv):
         # update controller's trajectory
         self.robots[0].controller.traj_pos = self.traj_pt
 
-        # update velocity running mean (simple moving average)
-        self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
-
-        # update contact force running mean (exponential moving average)
-        self.z_contact_force_running_mean = self.alpha * self.sim.data.cfrc_ext[self.probe_id][-1] + (1 - self.alpha) * self.z_contact_force_running_mean
-
         # check for early termination
         if self.early_termination:
             done = done or self._check_terminated()
@@ -485,6 +309,7 @@ class HMFC(SingleArmEnv):
             self.data_ee_pos[self.timestep - 1] = self._eef_xpos[:-1]
             self.data_ee_goal_pos[self.timestep - 1] = controller.p_d
             self.data_ee_force[self.timestep - 1] = controller.z_force
+            self.data_ee_force_mean[self.timestep - 1] = controller.z_force_running_mean
             self.data_ee_goal_force[self.timestep - 1] = controller.f_d
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
@@ -496,6 +321,7 @@ class HMFC(SingleArmEnv):
             self._save_data(self.data_ee_pos, sim_data_fldr, "ee_pos")
             self._save_data(self.data_ee_goal_pos, sim_data_fldr, "ee_goal_pos")
             self._save_data(self.data_ee_force, sim_data_fldr, "ee_force")
+            self._save_data(self.data_ee_force_mean, sim_data_fldr, "ee_force_mean")
             self._save_data(self.data_ee_goal_force, sim_data_fldr, "ee_goal_force")
             self._save_data(self.data_time, sim_data_fldr, "time")
 
@@ -521,122 +347,14 @@ class HMFC(SingleArmEnv):
 
     def _check_terminated(self):
         """
-        Check if the task has completed one way or another. The following conditions lead to termination:
-            - Collision with table
-            - Joint Limit reached
-            - Deviates from trajectory position
-            - Deviates from desired orientation when in contact with torso
-            - Loses contact with torso
-
         Returns:
             bool: True if episode is terminated
         """
 
         terminated = False
 
-        # Prematurely terminate if contacting the table with the probe
-        if self._check_probe_contact_with_table():
-            print(40 * '-' + " COLLIDED WITH TABLE " + 40 * '-')
-            terminated = True
-
-        # Prematurely terminate if reaching joint limits
-        if self.robots[0].check_q_limits():
-            print(40 * '-' + " JOINT LIMIT " + 40 * '-')
-            terminated = True
-
-        # Prematurely terminate if probe deviates away from trajectory (represented by a low position reward)
-        if np.linalg.norm(self.pos_error) > self.pos_error_threshold:
-            print(40 * '-' + " DEVIATES FROM TRAJECTORY " + 40 * '-')
-            terminated = True
-
-        # Prematurely terminate if probe deviates from desired orientation when touching probe
-        if self._check_probe_contact_with_torso() and self.ori_error > self.ori_error_threshold:
-            print(40 * '-' + " (TOUCHING BODY) PROBE DEVIATES FROM DESIRED ORIENTATION " + 40 * '-')
-            terminated = True
-
-        # Prematurely terminate if probe loses contact with torso
-        if self.has_touched_torso and not self._check_probe_contact_with_torso():
-            print(40 * '-' + " LOST CONTACT WITH TORSO " + 40 * '-')
-            terminated = True
-
         return terminated
 
-
-    def _get_contacts_objects(self, model):
-        """
-        Checks for any contacts with @model (as defined by @model's contact_geoms) and returns the set of
-        contact objects currently in contact with that model (excluding the geoms that are part of the model itself).
-
-        Args:
-            model (MujocoModel): Model to check contacts for.
-
-        Returns:
-            set: Unique contact objects containing information about contacts with this model.
-
-        Raises:
-            AssertionError: [Invalid input type]
-        """
-        # Make sure model is MujocoModel type
-        assert isinstance(model, MujocoModel), \
-            "Inputted model must be of type MujocoModel; got type {} instead!".format(type(model))
-        contact_set = set()
-        for contact in self.sim.data.contact[: self.sim.data.ncon]:
-            # check contact geom in geoms; add to contact set if match is found
-            g1, g2 = self.sim.model.geom_id2name(contact.geom1), self.sim.model.geom_id2name(contact.geom2)
-            if g1 in model.contact_geoms or g2 in model.contact_geoms:
-                contact_set.add(contact)
-
-        return contact_set
-
-
-    def _check_probe_contact_with_upper_part_torso(self):
-        """
-        Check if the probe is in contact with the upper/top part of torso. Touching the torso on the sides should not count as contact.
-
-        Returns:
-            bool: True if probe both is in contact with upper part of torso and inside distance threshold from the torso center.
-        """     
-        # check for contact only if probe is in contact with upper part and close to torso center
-        if  self._eef_xpos[-1] >= self._torso_xpos[-1] and np.linalg.norm(self._eef_xpos[:2] - self._torso_xpos[:2]) < 0.14:
-            return self._check_probe_contact_with_torso()
-
-        return False
-
-
-    def _check_probe_contact_with_torso(self):
-        """
-        Check if the probe is in contact with the torso.
-
-        NOTE This method utilizes the autogenerated geom names for MuJoCo-native composite objects
-        
-        Returns:
-            bool: True if probe is in contact with torso
-        """     
-        gripper_contacts = self._get_contacts_objects(self.robots[0].gripper)
-        reg_ex = "[G]\d+[_]\d+[_]\d+$"
-
-        # check contact with torso geoms based on autogenerated names
-        for contact in gripper_contacts:
-            g1, g2 = self.sim.model.geom_id2name(contact.geom1), self.sim.model.geom_id2name(contact.geom2) 
-            match1 = re.search(reg_ex, g1)
-            match2 = re.search(reg_ex, g2)
-            if match1 != None or match2 != None:
-                contact_normal_axis = contact.frame[:3]
-                self.has_touched_torso = True
-                return True
-    
-        return False
-
-    
-    def _check_probe_contact_with_table(self):
-        """
-        Check if the probe is in contact with the tabletop.
-
-        Returns:
-            bool: True if probe is in contact with table
-        """
-        return self.check_contact(self.robots[0].gripper, "table_collision")
-    
 
     def get_trajectory(self):
         """
@@ -648,49 +366,13 @@ class HMFC(SingleArmEnv):
         Returns:
             (klampt.model.trajectory Object):  trajectory
         """
-        grid = self._get_torso_grid()
-
-        start_point =  [0, 0, 0.83] # self._get_waypoint(grid)
-        end_point =  [0.2, -0.1, 0.83] #self._get_waypoint(grid)
+        start_point =  [0.3, 0, 0.299]
+        end_point =  [0.5, -0.2, 0.299] 
 
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
 
         return trajectory.Trajectory(milestones=milestones)
-
-
-    def _get_torso_grid(self):
-        """
-        Creates a 2D grid in the xy-plane on the top of the torso.
-
-        Args:
-
-        Returns:
-            (numpy.array):  grid. First row contains x-coordinates and the second row contains y-coordinates.
-        """
-        x = np.linspace(-self.x_range + self._torso_xpos[0] + 0.03, self.x_range + self._torso_xpos[0], num=self.grid_pts)  # add offset in negative range due to weird robot angles close to robot base
-        y = np.linspace(-self.y_range + self._torso_xpos[1], self.y_range + self._torso_xpos[1], num=self.grid_pts)
-
-        x = np.array([x])
-        y = np.array([y])
-
-        return np.concatenate((x, y))
-
-    
-    def _get_waypoint(self, grid):
-        """
-        Extracts a random waypoint from the grid.
-
-        Args:
-
-        Returns:
-            (numpy.array):  waypoint
-        """
-        x_pos = np.random.choice(grid[0])
-        y_pos = np.random.choice(grid[1])
-        z_pos = self._torso_xpos[-1] + self.top_torso_offset
-
-        return np.array([x_pos, y_pos, z_pos])
         
     
     def _get_initial_qpos(self):
@@ -734,32 +416,14 @@ class HMFC(SingleArmEnv):
         Returns:
             (np.array):  position (x,y,z) given in robotics toolbox coordinates and frame
         """
-        xpos_offset = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])[0]
-        zpos_offset = self.robots[0].robot_model.top_offset[-1] - 0.016
 
         # the numeric offset values have been found empirically, where they are chosen so that 
         # self._eef_xpos matches the desired position.
         if self.robots[0].name == "UR5e":
-            return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
+            return np.array([-pos[0] + 0.08, -pos[1] + 0.025, pos[2] + 0.15]) 
 
         if self.robots[0].name == "Panda":
-            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
-
-
-    def _add_noise_to_qpos(self, qpos, mu, sigma):
-        """
-        Adds Gaussian noise (variance) to the joint positions.
-
-        Args:
-            qpos (np.array): joint positions 
-            mu (float): mean (“centre”) of the distribution
-            sigma (float): standard deviation (spread or “width”) of the distribution. Must be non-negative
-
-        Returns:
-            (np.array):  joint positions with added noise
-        """
-        noise = np.random.normal(mu, sigma, qpos.size)
-        return qpos + noise
+            return np.array([pos[0] - 0.06, pos[1], pos[2] + 0.03])
 
 
     def _save_data(self, data, fldr, filename):
@@ -783,14 +447,3 @@ class HMFC(SingleArmEnv):
             path = os.path.join(fldr, filename + "_" + str(idx) + ".csv")
 
         pd.DataFrame(data).to_csv(path, header=None, index=None)
-
-
-    @property
-    def _torso_xpos(self):
-        """
-        Grabs torso center position
-
-        Returns:
-            np.array: torso pos (x,y,z)
-        """
-        return np.array(self.sim.data.body_xpos[self.torso_body_id]) 

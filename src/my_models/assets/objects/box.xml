@@ -2,7 +2,7 @@
   <worldbody>
     <body>
       <body name="object">
-        <geom name="box_geom" pos="0. 0.0 0.82" type="box" mass="2" friction="0.00001 0.0005 0.000001" size="0.4 0.4 0.02" rgba="0.6 0.1 0.1 1" group="0"/>
+        <geom name="box_geom" pos="0.6 0. 0.15" type="box" mass="2" solref="-0.0001 -250" friction="0.0000001 0.000005 0.00000001" size="0.4 0.4 0.15" rgba="0.6 0.1 0.1 1" group="0"/>
       </body>
       <site rgba="0 0 0 0" size="0.005" pos="0 0 -0.05" name="bottom_site"/>
       <site rgba="0 0 0 0" size="0.005" pos="0 0 0.05" name="top_site"/>
