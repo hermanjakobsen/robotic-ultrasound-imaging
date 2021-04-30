@@ -8,11 +8,11 @@ def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
     pos_des = pd.read_csv(pos_desired_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
-    labels = ["x", "y", "z"]
-    labels_des = ["x_goal", "y_goal", "z_goal"]               # labels for desired values
+    labels = ["x", "y"]
+    labels_des = ["x_goal", "y_goal"]              # labels for desired values
 
     plt.figure()
-    for i in range(len(pos.columns)):
+    for i in range(len(pos.columns) - 1):
         plt.plot(time, pos[i], label=labels[i])
         plt.plot(time, pos_des[i], "--", label=labels_des[i])
 
@@ -222,16 +222,32 @@ def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
 
     plt.show()
 
-def hmfc_plot_z_force(force_filename, desired_force_filename, time_filename):
+
+def hmfc_plot_z_force(force_filename, mean, desired_force_filename, time_filename):
     force = pd.read_csv(force_filename, header=None)
     des_force = pd.read_csv(desired_force_filename, header=None)
+    mean_force = pd.read_csv(mean, header=None)
     time = pd.read_csv(time_filename, header=None) 
 
     plt.figure()
     plt.plot(time, force, label="force")
     plt.plot(time, des_force, "--", label="goal_force")
+    #plt.plot(time, mean_force, label="mean_force")
 
     plt.legend()
     plt.xlabel("Completed episode (%)")
     plt.title("z force")
+    plt.show()
+
+
+def hmfc_plot_z_pos(pos_filename, time_filename):
+    pos = pd.read_csv(pos_filename, header=None) 
+    time = pd.read_csv(time_filename, header=None)
+
+    plt.figure()
+    plt.plot(time, pos, label="z_pos")
+
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("Position in z-direction")
     plt.show()
