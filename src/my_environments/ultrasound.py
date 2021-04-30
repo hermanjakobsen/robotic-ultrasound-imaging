@@ -122,6 +122,7 @@ class Ultrasound(SingleArmEnv):
         camera_depths=False,
         early_termination=False,
         save_data=False,
+        test_model=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -184,6 +185,7 @@ class Ultrasound(SingleArmEnv):
         # misc settings
         self.early_termination = early_termination
         self.save_data = save_data
+        self.test_model = test_model
 
         super().__init__(
             robots=robots,
@@ -692,6 +694,7 @@ class Ultrasound(SingleArmEnv):
         """
         Calculates a trajectory between two waypoints on the torso. The waypoints are extracted from a grid on the torso.
         The first waypoint is given at time t=0, and the second waypoint is given at t=1.
+        If self.test_model is true, a deterministic trajectory along the x-axis of the torso is calculated.
 
         Args:
 
@@ -700,8 +703,12 @@ class Ultrasound(SingleArmEnv):
         """
         grid = self._get_torso_grid()
 
-        start_point = self._get_waypoint(grid)
-        end_point = self._get_waypoint(grid)
+        if self.test_model:
+            start_point = [grid[0, 0], 0, self._torso_xpos[-1] + self.top_torso_offset]
+            end_point = [grid[0, -1], 0, self._torso_xpos[-1] + self.top_torso_offset]
+        else:   
+            start_point = self._get_waypoint(grid)
+            end_point = self._get_waypoint(grid)
 
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
