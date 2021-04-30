@@ -269,6 +269,7 @@ class HMFC(SingleArmEnv):
             self.data_ee_force = np.array(np.zeros(self.horizon))
             self.data_ee_force_mean = np.array(np.zeros(self.horizon))
             self.data_ee_goal_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_pos = np.array(np.zeros(self.horizon))
             self.data_time = np.array(np.zeros(self.horizon))
 
 
@@ -297,6 +298,8 @@ class HMFC(SingleArmEnv):
         # update controller's trajectory
         self.robots[0].controller.traj_pos = self.traj_pt
 
+
+
         # check for early termination
         if self.early_termination:
             done = done or self._check_terminated()
@@ -311,6 +314,7 @@ class HMFC(SingleArmEnv):
             self.data_ee_force[self.timestep - 1] = controller.z_force
             self.data_ee_force_mean[self.timestep - 1] = controller.z_force_running_mean
             self.data_ee_goal_force[self.timestep - 1] = controller.f_d
+            self.data_ee_z_pos[self.timestep - 1] = self._eef_xpos[-1]
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
         
@@ -323,6 +327,7 @@ class HMFC(SingleArmEnv):
             self._save_data(self.data_ee_force, sim_data_fldr, "ee_force")
             self._save_data(self.data_ee_force_mean, sim_data_fldr, "ee_force_mean")
             self._save_data(self.data_ee_goal_force, sim_data_fldr, "ee_goal_force")
+            self._save_data(self.data_ee_z_pos, sim_data_fldr, "ee_z_pos")
             self._save_data(self.data_time, sim_data_fldr, "time")
 
 
@@ -366,8 +371,8 @@ class HMFC(SingleArmEnv):
         Returns:
             (klampt.model.trajectory Object):  trajectory
         """
-        start_point =  [0.3, 0, 0.299]
-        end_point =  [0.5, -0.2, 0.299] 
+        start_point =  [0.3, 0, 0.295]
+        end_point =  [0.5, -0.2, 0.295] 
 
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
