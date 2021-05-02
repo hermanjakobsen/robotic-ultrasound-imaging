@@ -33,7 +33,7 @@ def run_simulation():
         "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
         "kp": 300,
         "damping_ratio": 1,
-        "impedance_mode": "tracking",
+        "impedance_mode": "variable_z",
         "kp_limits": [0, 1000],
         "damping_ratio_limits": [0, 2],
         "position_limits": None,
@@ -50,7 +50,7 @@ def run_simulation():
     env_options["use_camera_obs"] = False
     env_options["use_object_obs"] = False
     env_options["horizon"] = 500
-    env_options["early_termination"] = True
+    env_options["early_termination"] = False
     env_options["save_data"] = False
 
     env = suite.make(env_id, **env_options)
@@ -64,9 +64,9 @@ def run_simulation():
     ret = 0.
     
     for t in range(env.horizon):
-        print(t)
+        #print(t)
 
-        action = [1 for i in range(6)]
+        action = [500, 500, 500, 500, 500, 500, -500]
 
         obs, reward, done, _ = env.step(action) # play action
 
@@ -93,19 +93,18 @@ def test_hmfc():
         "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
         "interpolation": None,
     }
-    env_options["control_freq"] = 100
+    env_options["control_freq"] = 500
     env_options["has_renderer"] = True
     env_options["has_offscreen_renderer"] = False
     env_options["render_camera"] = None
     env_options["use_camera_obs"] = False
-    env_options["use_object_obs"] = False
     env_options["horizon"] = 1000
+    env_options["save_data"] = True
 
     env = suite.make(env_id, **env_options)
 
     # reset the environment to prepare for a rollout
     obs = env.reset()
-
     done = False
     ret = 0.
     
@@ -121,6 +120,7 @@ def test_hmfc():
             break
     print("rollout completed with return {}".format(ret))
 
+
 def plot_data(run_num):
     num = str(run_num)
     plt.plot_eef_pos("simulation_data/ee_pos_" + num + ".csv", "simulation_data/ee_goal_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
@@ -133,7 +133,17 @@ def plot_data(run_num):
     #plt.plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
 
 
+def plot_hmfc_data(run_num):
+    num = str(run_num)
+    plt.hmfc_plot_ee_pos("hmfc_test_data/ee_pos_" + num + ".csv", "hmfc_test_data/ee_goal_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    plt.hmfc_plot_z_force("hmfc_test_data/ee_force_" + num + ".csv",  "hmfc_test_data/ee_force_mean_" + num + ".csv", "hmfc_test_data/ee_goal_force_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    plt.hmfc_plot_z_pos("hmfc_test_data/ee_z_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    plt.hmfc_plot_torques("hmfc_test_data/desired_torque_" + num + ".csv", "hmfc_test_data/compensation_torque_" + num + ".csv", "hmfc_test_data/external_torque_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+
+
 #run_simulation()
-#test_hmfc()
-#plot_data(15)
+#plot_data(7)
+test_hmfc()
+plot_hmfc_data(1)
+
 

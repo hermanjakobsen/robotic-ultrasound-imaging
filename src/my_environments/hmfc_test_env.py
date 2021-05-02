@@ -270,6 +270,9 @@ class HMFC(SingleArmEnv):
             self.data_ee_force_mean = np.array(np.zeros(self.horizon))
             self.data_ee_goal_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_pos = np.array(np.zeros(self.horizon))
+            self.data_desired_torque = np.array(np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_external_torque = np.array(np.zeros((self.horizon, self.robots[0].dof)))
+            self.data_compensation_torque = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_time = np.array(np.zeros(self.horizon))
 
 
@@ -298,8 +301,6 @@ class HMFC(SingleArmEnv):
         # update controller's trajectory
         self.robots[0].controller.traj_pos = self.traj_pt
 
-
-
         # check for early termination
         if self.early_termination:
             done = done or self._check_terminated()
@@ -315,6 +316,9 @@ class HMFC(SingleArmEnv):
             self.data_ee_force_mean[self.timestep - 1] = controller.z_force_running_mean
             self.data_ee_goal_force[self.timestep - 1] = controller.f_d
             self.data_ee_z_pos[self.timestep - 1] = self._eef_xpos[-1]
+            self.data_desired_torque[self.timestep - 1] = controller.desired_torque if self.timestep > 3 else 0     # override noisy start values
+            self.data_external_torque[self.timestep - 1] = controller.external_torque
+            self.data_compensation_torque[self.timestep - 1] = controller.torque_compensation
             self.data_time[self.timestep - 1] = (self.timestep - 1) / self.horizon * 100                         # percentage of completed episode
 
         
@@ -328,6 +332,9 @@ class HMFC(SingleArmEnv):
             self._save_data(self.data_ee_force_mean, sim_data_fldr, "ee_force_mean")
             self._save_data(self.data_ee_goal_force, sim_data_fldr, "ee_goal_force")
             self._save_data(self.data_ee_z_pos, sim_data_fldr, "ee_z_pos")
+            self._save_data(self.data_desired_torque, sim_data_fldr, "desired_torque")
+            self._save_data(self.data_external_torque, sim_data_fldr, "external_torque")
+            self._save_data(self.data_compensation_torque, sim_data_fldr, "compensation_torque")
             self._save_data(self.data_time, sim_data_fldr, "time")
 
 

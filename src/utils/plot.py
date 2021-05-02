@@ -98,14 +98,18 @@ def plot_qpos(qpos_filename, time_filename):
 
 
 
-def plot_qtorques(qtorque_filename, time_filename):
+def plot_qtorques(qtorque_filename, time_filename, title=None):
     torques = pd.read_csv(qtorque_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
     colors = ['red', 'black', 'blue', 'brown', 'green', "purple", "olive"]
 
     fig, axs = plt.subplots(len(torques.columns))
-    fig.suptitle("Joint torques")
+    if title is None:
+        fig.suptitle("Joint torques") 
+    else:
+        fig.suptitle(title)
+
     for i in range(len(torques.columns)):
         axs[i].plot(time, torques[i], color=colors[i])
         axs[i].set_title("q" + str(i + 1))
@@ -251,3 +255,10 @@ def hmfc_plot_z_pos(pos_filename, time_filename):
     plt.xlabel("Completed episode (%)")
     plt.title("Position in z-direction")
     plt.show()
+
+
+def hmfc_plot_torques(desired_torque_filename, comp_torque_filename, ext_torque_filename, time_filename):
+    plot_qtorques(desired_torque_filename, time_filename, title="Desired torques")
+    plot_qtorques(comp_torque_filename, time_filename, title="Compensation torques")
+    plot_qtorques(ext_torque_filename, time_filename, title="External torques")
+    
