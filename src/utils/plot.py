@@ -178,6 +178,11 @@ def plot_controller_gains(action_filename, time_filename):
         kp = action
         kd = 2 * np.sqrt(kp)
 
+    # variable_z mode
+    elif len(action.columns) == 7:
+        kp = action.iloc[:, :-1]
+        kd = 2 * np.sqrt(kp)
+
     else:
         print("Unknown action dim!")
         return
@@ -204,6 +209,26 @@ def plot_controller_gains(action_filename, time_filename):
 
     plt.xlabel("Completed episode (%)")
 
+    plt.show()
+
+
+def plot_delta_z(action_filename, time_filename):
+    action = pd.read_csv(action_filename, header=None)
+    time = pd.read_csv(time_filename, header=None)
+
+    # Not variable_z mode
+    if len(action.columns) != 7:
+        return 
+
+    delta_z = action.iloc[:, -1]
+    delta_z.columns = 0             # reset column index
+
+    plt.figure()
+    plt.plot(time, delta_z, label="delta_z")
+
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("Action - delta_z")
     plt.show()
 
 

@@ -65,7 +65,7 @@ def run_simulation():
     for t in range(env.horizon):
         #print(t)
 
-        action = [500, 500, 500, 500, 500, 500, -500]
+        action = [1, 1, 500, 1, 1, 1, 0.01]
 
         obs, reward, done, _ = env.step(action) # play action
 
@@ -128,6 +128,7 @@ def plot_data(run_num):
     plt.plot_rewards("reward_data/pos_" + num + ".csv", "reward_data/ori_" + num + ".csv", "reward_data/vel_" + num + ".csv", "reward_data/force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     #plt.plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     plt.plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plt.plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     #plt.plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     #plt.plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
 
@@ -141,8 +142,8 @@ def plot_hmfc_data(run_num):
 
 
 #run_simulation()
-#plot_data(7)
+plot_data(8)
 #test_hmfc()
-plot_hmfc_data(1)
+#plot_hmfc_data(1)
 
 
