@@ -6,13 +6,12 @@ import numpy as np
 from robosuite.environments.base import register_env
 import robosuite.utils.transform_utils as T
 
-from my_environments import Ultrasound, FetchPush, HMFC
+from my_environments import Ultrasound, HMFC
 from my_models.grippers import UltrasoundProbeGripper
 from utils.common import register_gripper, get_elements_in_obs
 import utils.plot as plt
 
 register_env(Ultrasound)
-register_env(FetchPush)
 register_env(HMFC)
 register_gripper(UltrasoundProbeGripper)
 
@@ -143,7 +142,7 @@ def plot_hmfc_data(run_num):
 
 #run_simulation()
 #plot_data(7)
-test_hmfc()
+#test_hmfc()
 plot_hmfc_data(1)
 
 
