@@ -780,7 +780,7 @@ class Ultrasound(SingleArmEnv):
         Returns:
             (np.array): n joint positions 
         """
-        pos = self.traj_pt
+        pos = np.array(self.traj_pt)
         if self.initial_probe_pos_randomization:
             pos = self._add_noise_to_array(pos, self.mu, self.sigma)
 
