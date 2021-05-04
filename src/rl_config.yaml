@@ -47,9 +47,12 @@ robosuite:
     control_delta: True
     interpolation: null
     ramp_ratio: 0.2
-  early_termination: False
+  early_termination: True
   save_data: False
-  test_model: False
+  deterministic_trajectory: False
+  torso_solref_randomization: False
+  start_pos_randomization: False
+  initial_probe_pos_randomization: False
 
 # Settings used for file handling and logging (save/load destination etc)
 file_handling:
