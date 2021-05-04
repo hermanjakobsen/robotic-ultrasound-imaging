@@ -17,14 +17,14 @@ sb_policy:
 # Specify environment
 robosuite:
   env_id: "Ultrasound"
-  robots: "UR5e"
+  robots: "Panda"
   use_camera_obs: False
   use_object_obs: False   # Torso obs
   has_renderer: False
   has_offscreen_renderer: False
   render_camera: null
-  control_freq: 100
-  horizon: 500
+  control_freq: 500
+  horizon: 1000
   camera_names: "agentview"
   camera_heights: 48
   camera_widths: 48
@@ -36,7 +36,7 @@ robosuite:
     input_min: -1
     output_max: [0.05, 0.05, 0.05, 0.5, 0.5, 0.5]
     output_min: [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5]
-    kp: 150
+    kp: 300
     damping_ratio: 1
     impedance_mode: "tracking"
     kp_limits: [1, 500]
@@ -45,10 +45,11 @@ robosuite:
     orientation_limits: null
     uncouple_pos_ori: True
     control_delta: True
-    interpolation: "linear"
+    interpolation: null
     ramp_ratio: 0.2
-  early_termination: True
+  early_termination: False
   save_data: False
+  test_model: False
 
 # Settings used for file handling and logging (save/load destination etc)
 file_handling:
@@ -62,6 +63,6 @@ file_handling:
   load_model_filename: "test"
   # Path to model which should be continued to train
   continue_training_model_folder: "trained_models"
-  continue_training_model_filename: null         # is null when training a new model
+  continue_training_model_filename: null       # is null when training a new model
 
 
