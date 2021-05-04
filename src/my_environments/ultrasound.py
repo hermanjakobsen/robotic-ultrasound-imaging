@@ -86,8 +86,11 @@ class Ultrasound(SingleArmEnv):
         camera_depths (bool or list of bool): True if rendering RGB-D, and RGB otherwise. Should either be single
             bool if same depth setting is to be used for all cameras or else it should be a list of the same length as
             "camera names" param.
-        early_termination (bool): True if episode is allowed to finish early.
-        save_data (bool): True if data from episode is collected and saved.
+        early_termination (bool): If True, episode is allowed to finish early.
+        save_data (bool): If True, data from the episode is collected and saved.
+        deterministic_trajectory (bool): If True, chooses a deterministic trajectory which goes along the x-axis of the torso.
+        torso_solref_randomization (bool): If True, randomize the stiffness and damping parameter of the torso. 
+        initial_probe_pos_randomization (bool): If True, Gaussian noise will be added to the initial position of the probe.
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -122,7 +125,10 @@ class Ultrasound(SingleArmEnv):
         camera_depths=False,
         early_termination=False,
         save_data=False,
-        test_model=False,
+        deterministic_trajectory=False,
+        torso_solref_randomization=False,
+        start_pos_randomization=False,
+        initial_probe_pos_randomization=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -140,7 +146,7 @@ class Ultrasound(SingleArmEnv):
 
         # settings for joint initialization noise (Gaussian)
         self.mu = 0
-        self.sigma = 0.00
+        self.sigma = 0.015
 
         # settings for contact force running mean
         self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
@@ -182,10 +188,14 @@ class Ultrasound(SingleArmEnv):
         # object placement initializer
         self.placement_initializer = placement_initializer
 
+        # randomization settings
+        self.torso_solref_randomization = torso_solref_randomization
+        self.initial_probe_pos_randomization = initial_probe_pos_randomization
+
         # misc settings
         self.early_termination = early_termination
         self.save_data = save_data
-        self.test_model = test_model
+        self.deterministic_trajectory = deterministic_trajectory
 
         super().__init__(
             robots=robots,
@@ -260,14 +270,25 @@ class Ultrasound(SingleArmEnv):
         xpos = self.robots[0].robot_model.base_xpos_offset["table"](self.table_full_size[0])
         self.robots[0].robot_model.set_base_xpos(xpos)
 
-        # load model for table top workspace
+        # Load model for table top workspace
         mujoco_arena = UltrasoundArena()
 
         # Arena always gets set to zero origin
         mujoco_arena.set_origin([0, 0, 0])
 
-        # initialize objects of interest
+        # Initialize torso object
         self.torso = SoftTorsoObject(name="torso")
+
+        if self.torso_solref_randomization:
+            # Randomize torso's stiffness and damping (values are taken from my project thesis)
+            stiffness = np.array([i for i in range(1300, 1600, 10)])
+            damping = np.array([i for i in range(17, 41)])
+
+            damp_idx = int(np.random.choice(damping.shape[0], 1, replace=False))
+            stiff_idx = int(np.random.choice(stiffness.shape[0], 1, replace=False))
+
+            self.torso.set_damping(damping[damp_idx])
+            self.torso.set_stiffness(stiffness[stiff_idx])
 
         # Create placement initializer
         if self.placement_initializer is not None:
@@ -419,7 +440,6 @@ class Ultrasound(SingleArmEnv):
 
         # get initial joint positions for robot
         init_qpos = self._get_initial_qpos()
-        init_qpos = self._add_noise_to_qpos(init_qpos, self.mu, self.sigma)
 
         # override initial robot joint positions
         self.robots[0].set_robot_joint_positions(init_qpos)
@@ -694,7 +714,7 @@ class Ultrasound(SingleArmEnv):
         """
         Calculates a trajectory between two waypoints on the torso. The waypoints are extracted from a grid on the torso.
         The first waypoint is given at time t=0, and the second waypoint is given at t=1.
-        If self.test_model is true, a deterministic trajectory along the x-axis of the torso is calculated.
+        If self.deterministic_trajectory is true, a deterministic trajectory along the x-axis of the torso is calculated.
 
         Args:
 
@@ -703,7 +723,7 @@ class Ultrasound(SingleArmEnv):
         """
         grid = self._get_torso_grid()
 
-        if self.test_model:
+        if self.deterministic_trajectory:
             start_point = [grid[0, 0], 0, self._torso_xpos[-1] + self.top_torso_offset]
             end_point = [grid[0, -1], 0, self._torso_xpos[-1] + self.top_torso_offset]
         else:   
@@ -753,13 +773,18 @@ class Ultrasound(SingleArmEnv):
     def _get_initial_qpos(self):
         """
         Calculates the initial joint position for the robot based on the initial desired pose (self.traj_pt, self.goal_quat).
+        If self.initial_probe_pos_randomization is True, Guassian noise is added to the initial position of the probe.
 
         Args:
 
         Returns:
             (np.array): n joint positions 
         """
-        pos = self._convert_robosuite_to_toolbox_xpos(self.traj_pt)
+        pos = self.traj_pt
+        if self.initial_probe_pos_randomization:
+            pos = self._add_noise_to_array(pos, self.mu, self.sigma)
+
+        pos = self._convert_robosuite_to_toolbox_xpos(pos)
         ori_euler = mat2euler(quat2mat(self.goal_quat))
 
         # desired pose
@@ -803,20 +828,20 @@ class Ultrasound(SingleArmEnv):
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
 
 
-    def _add_noise_to_qpos(self, qpos, mu, sigma):
+    def _add_noise_to_array(self, array, mu, sigma):
         """
-        Adds Gaussian noise (variance) to the joint positions.
+        Adds Gaussian noise (variance) to elements of the array.
 
         Args:
-            qpos (np.array): joint positions 
+            array (np.array): array 
             mu (float): mean (“centre”) of the distribution
             sigma (float): standard deviation (spread or “width”) of the distribution. Must be non-negative
 
         Returns:
-            (np.array):  joint positions with added noise
+            (np.array):  array with added noise
         """
-        noise = np.random.normal(mu, sigma, qpos.size)
-        return qpos + noise
+        noise = np.random.normal(mu, sigma, array.size)
+        return array + noise
 
 
     def _save_data(self, data, fldr, filename):
