@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
+import matplotlib as mpl
 
+#mpl.style.use("seaborn")
 
 def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
     pos = pd.read_csv(pos_filename, header=None) 
@@ -12,9 +15,16 @@ def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
     labels_des = ["x_goal", "y_goal"]              # labels for desired values
 
     plt.figure()
-    for i in range(len(pos.columns) - 1):
-        plt.plot(time, pos[i], label=labels[i])
-        plt.plot(time, pos_des[i], "--", label=labels_des[i])
+    plt.plot(time, pos[0], label=labels[0])
+    plt.plot(time, pos_des[0], "--", label=labels_des[0])
+
+    plt.legend()
+    plt.xlabel("Completed episode (%)")
+    plt.title("End-effector position")
+
+    plt.figure()
+    plt.plot(time, pos[1], label=labels[1])
+    plt.plot(time, pos_des[1], "--", label=labels_des[1])
 
     plt.legend()
     plt.xlabel("Completed episode (%)")
@@ -175,12 +185,12 @@ def plot_controller_gains(action_filename, time_filename):
 
     # tracking mode
     elif len(action.columns) == 6:
-        kp = action
+        kp = scale_gain(action, 1, 500)
         kd = 2 * np.sqrt(kp)
 
     # variable_z mode
     elif len(action.columns) == 7:
-        kp = action.iloc[:, :-1]
+        kp = scale_gain(action.iloc[:, :-1], 1, 500)
         kd = 2 * np.sqrt(kp)
 
     else:
@@ -252,6 +262,27 @@ def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
     plt.show()
 
 
+def plot_training_rew_mean(rew_mean_filename):
+    rew_mean = pd.read_csv(rew_mean_filename)
+
+    res = sns.lineplot(x="Step", y="Value", data=rew_mean)
+    plt.title("Training - Episodic mean reward")
+    plt.show()
+
+
+def plot_sim_data(run_num):
+    num = str(run_num)
+    plot_eef_pos("simulation_data/ee_pos_" + num + ".csv", "simulation_data/ee_goal_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_eef_vel("simulation_data/ee_vel_" + num + ".csv", "simulation_data/ee_running_mean_vel_" + num + ".csv", "simulation_data/ee_goal_vel_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_contact_and_contact_force("simulation_data/ee_z_contact_force_" + num + ".csv", "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", "simulation_data/ee_z_desired_contact_force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_rewards("reward_data/pos_" + num + ".csv", "reward_data/ori_" + num + ".csv", "reward_data/vel_" + num + ".csv", "reward_data/force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    #plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    #plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    #plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+
+
 def hmfc_plot_z_force(force_filename, mean, desired_force_filename, time_filename):
     force = pd.read_csv(force_filename, header=None)
     des_force = pd.read_csv(desired_force_filename, header=None)
@@ -287,3 +318,19 @@ def hmfc_plot_torques(desired_torque_filename, comp_torque_filename, ext_torque_
     plot_qtorques(comp_torque_filename, time_filename, title="Compensation torques")
     plot_qtorques(ext_torque_filename, time_filename, title="External torques")
     
+
+def plot_hmfc_data(run_num):
+    num = str(run_num)
+    hmfc_plot_ee_pos("hmfc_test_data/ee_pos_" + num + ".csv", "hmfc_test_data/ee_goal_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    hmfc_plot_z_force("hmfc_test_data/ee_force_" + num + ".csv",  "hmfc_test_data/ee_force_mean_" + num + ".csv", "hmfc_test_data/ee_goal_force_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    hmfc_plot_z_pos("hmfc_test_data/ee_z_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+    hmfc_plot_torques("hmfc_test_data/desired_torque_" + num + ".csv", "hmfc_test_data/compensation_torque_" + num + ".csv", "hmfc_test_data/external_torque_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
+
+
+def scale_gain(kp, kp_min, kp_max):
+    kp_scale = abs(kp_max - kp_min) / abs(1 - 0)
+    kp_output_transform = (kp_max + kp_min) / 2.0
+    kp_input_transform = (1 + 0) / 2.0
+    scaled_kp = (kp - kp_input_transform) * kp_scale + kp_output_transform
+
+    return scaled_kp
