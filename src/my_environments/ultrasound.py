@@ -127,7 +127,6 @@ class Ultrasound(SingleArmEnv):
         save_data=False,
         deterministic_trajectory=False,
         torso_solref_randomization=False,
-        start_pos_randomization=False,
         initial_probe_pos_randomization=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
