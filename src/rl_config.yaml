@@ -51,7 +51,6 @@ robosuite:
   save_data: False
   deterministic_trajectory: False
   torso_solref_randomization: False
-  start_pos_randomization: False
   initial_probe_pos_randomization: False
 
 # Settings used for file handling and logging (save/load destination etc)
