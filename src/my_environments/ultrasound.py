@@ -283,11 +283,8 @@ class Ultrasound(SingleArmEnv):
             stiffness = np.random.randint(1300, 1600)
             damping = np.random.randint(17, 41)
 
-            damp_idx = int(np.random.choice(damping.shape[0], 1, replace=False))
-            stiff_idx = int(np.random.choice(stiffness.shape[0], 1, replace=False))
-
-            self.torso.set_damping(damping[damp_idx])
-            self.torso.set_stiffness(stiffness[stiff_idx])
+            self.torso.set_damping(damping)
+            self.torso.set_stiffness(stiffness)
 
         # Create placement initializer
         if self.placement_initializer is not None:
