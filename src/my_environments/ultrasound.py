@@ -280,8 +280,8 @@ class Ultrasound(SingleArmEnv):
 
         if self.torso_solref_randomization:
             # Randomize torso's stiffness and damping (values are taken from my project thesis)
-            stiffness = np.array([i for i in range(1300, 1600, 10)])
-            damping = np.array([i for i in range(17, 41)])
+            stiffness = np.random.randint(1300, 1600)
+            damping = np.random.randint(17, 41)
 
             damp_idx = int(np.random.choice(damping.shape[0], 1, replace=False))
             stiff_idx = int(np.random.choice(stiffness.shape[0], 1, replace=False))
@@ -724,7 +724,7 @@ class Ultrasound(SingleArmEnv):
 
         if self.deterministic_trajectory:
             start_point = [grid[0, 0], 0, self._torso_xpos[-1] + self.top_torso_offset]
-            end_point = [grid[0, -1], 0, self._torso_xpos[-1] + self.top_torso_offset]
+            end_point = [0, 0, self._torso_xpos[-1] + self.top_torso_offset]
         else:   
             start_point = self._get_waypoint(grid)
             end_point = self._get_waypoint(grid)
