@@ -176,7 +176,7 @@ class Ultrasound(SingleArmEnv):
         self.ori_error_threshold = 0.10
 
         # examination trajectory
-        self.top_torso_offset = 0.044     # offset from z_center of torso to top of torso
+        self.top_torso_offset = 0.041     # offset from z_center of torso to top of torso
         self.x_range = 0.15               # how large the torso is from center to end in x-direction
         self.y_range = 0.05 #0.11               # how large the torso is from center to end in y-direction
         self.grid_pts = 50                # how many points in the grid
@@ -778,7 +778,8 @@ class Ultrasound(SingleArmEnv):
         """
         pos = np.array(self.traj_pt)
         if self.initial_probe_pos_randomization:
-            pos = self._add_noise_to_array(pos, self.mu, self.sigma)
+            # Add noise to z-position
+            pos = self._add_noise_to_inital_pos(pos)
 
         pos = self._convert_robosuite_to_toolbox_xpos(pos)
         ori_euler = mat2euler(quat2mat(self.goal_quat))
@@ -824,20 +825,24 @@ class Ultrasound(SingleArmEnv):
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
 
 
-    def _add_noise_to_array(self, array, mu, sigma):
+    def _add_noise_to_inital_pos(self, init_pos):
         """
-        Adds Gaussian noise (variance) to elements of the array.
+        Adds Gaussian noise (variance) to the initial probe position.
 
         Args:
-            array (np.array): array 
-            mu (float): mean (“centre”) of the distribution
-            sigma (float): standard deviation (spread or “width”) of the distribution. Must be non-negative
+            init_pos (np.array): initial probe position 
 
         Returns:
-            (np.array):  array with added noise
+            (np.array):  position with added noise
         """
-        noise = np.random.normal(mu, sigma, array.size)
-        return array + noise
+        z_noise = np.random.normal(self.mu, self.sigma, 1)
+        xy_noise = np.random.normal(self.mu, self.sigma/4, 2)
+
+        x = init_pos[0] + xy_noise[0]
+        y = init_pos[1] + xy_noise[1]
+        z = init_pos[2] + z_noise[0]
+
+        return np.array([x, y, z])
 
 
     def _save_data(self, data, fldr, filename):
