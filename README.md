@@ -3,13 +3,13 @@ The overarching goal of this framework is to make a robot manipulator able to co
 
 As a first step, a simulation environment for experimenting with soft contacts has been created. Using reinforcement learning, the goal of the **ultrasound task** is to learn a robot how to perform a sweep across the surface of a soft body, while both exerting a desired force and keeping a constant velocity.  
 
-<p float="middle">
-  <img src="docs/images/frontview.png" width="310" />
-  <img src="docs/images/sideview.png" width="310" /> 
+<p align="middle">
+  <img src="docs/images/frontview.png" width="650" />
+  <img src="docs/images/sideview.png" width="650" /> 
 </p>
-<p float="middle">
-  <img src="docs/images/zoom.png" width="310" />
-  <img src="docs/images/zoom_transparent.png" width="310" /> 
+<p align="middle">
+  <img src="docs/images/zoom.png" width="650" />
+  <img src="docs/images/zoom_transparent.png" width="650" /> 
 </p>
 
 
