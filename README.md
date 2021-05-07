@@ -1,3 +1,18 @@
+# Robotic ultrasound imaging
+The overarching goal of this framework is to make a robot manipulator able to conduct automatic ultrasound imaging. 
+
+As a first step, a simulation environment for experimenting with soft contacts has been created. Using reinforcement learning, the goal of the **ultrasound task** is to learn a robot how to perform a sweep across the surface of a soft body, while both exerting a desired force and keeping a constant velocity.  
+
+<p float="middle">
+  <img src="docs/images/frontview.png" width="310" />
+  <img src="docs/images/sideview.png" width="310" /> 
+</p>
+<p float="middle">
+  <img src="docs/images/zoom.png" width="310" />
+  <img src="docs/images/zoom_transparent.png" width="310" /> 
+</p>
+
+
 # Installation 
 The framework has been tested to run with Ubuntu20.04 and python3.8. 
 ## MuJoCo 2.0
@@ -17,8 +32,16 @@ Lastly, add the following line to the bottom of `~/.bashrc`
 ```
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<path_to_home>/.mujoco/mujoco200/bin
 ```
+
+## System dependencies
+One of the Python packages, `mujoco-py`, has additional system dependencies. In order to install these dependencies, run the following:
+```
+sudo apt install libosmesa6-dev libgl1-mesa-glx libglfw3 patchelf
+```
+For further information, check out the `mujoco-py` [installation guide](https://github.com/openai/mujoco-py).
+
 ## Virtual environment
-To avoid package conflicts, it is smart to create a virtual environment. It is possible to create a virtual environment using either pip or conda. Some packages require additional system dependencies, as stated in the "Notes" section. 
+To avoid package conflicts, it is smart to create a virtual environment. It is possible to create a virtual environment using either pip or conda.
 
 ## Conda
 First, follow the [guidelines](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) on how to install Miniconda. The virtual environment can then be created by running 
@@ -46,19 +69,12 @@ The required packages can then be installed with
 pip3 install wheel  
 pip3 install -r requirements.txt
 ```
-## Notes
-The `mujoco-py` package may require additional system dependencies. The full installation process for this package can be found [here](https://github.com/openai/mujoco-py). For instance, if you are going to use a GPU to train RL agents, the `patchelf` package is needed for installing `mujoco-py`:
+
+# Train and run an RL agent
+It is possible to train an RL agent to perform the **ultrasound task**, where the framework has been integrated with the PPO algorithm from [stable-baselines](https://github.com/DLR-RM/stable-baselines3). Different settings (e.g. controller specifications) can be specified in `rl_config.yaml`. Note that the config file is not complete, so there exists numerous of other settings and hyperparameters that are not specifed in the file. For these parameters, the default values are used. 
+
+To train (or run) an agent, it is as simple as running
 ```
-sudo apt-get install -y patchelf
-```
-
- # Train and run an RL agent
- It is possible to train an RL agent to perform the ultrasound task, where the framework has been integrated with the RL algorithms from [stable-baselines](https://github.com/DLR-RM/stable-baselines3). Different settings (e.g. object observations and controller specifications) can be specified in `rl_config.yaml`. Note that the config file is not complete, hence there exists numerous of other settings and hyperparameters that are not specifed in the file. For these parameters, the default values are used. 
-
- To train (or run) an agent, it is as simple as running
- ```
- python3 rl.py
- ``` 
- Whether to train an agent, or evaluate a trained agent, is specified in `rl_config.yaml`.
-
- NOTE: The ultrasound task is not complete. That is, the reward function is not properly defined. Hence, as of now, the agent is not able to learn to perform an ultrasound examination correctly.
+python3 rl.py
+``` 
+Whether to train an agent, or evaluate a trained agent, is specified in `rl_config.yaml`.
