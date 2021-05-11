@@ -8,8 +8,8 @@ As a first step, a simulation environment for experimenting with soft contacts h
   <img src="docs/images/sideview.png" width="350" /> 
 </p>
 <p align="middle">
-  <img src="docs/images/zoom.png" width="350" />
-  <img src="docs/images/zoom_transparent.png" width="350" /> 
+  <img src="docs/images/press_torso.png" width="350" />
+  <img src="docs/images/press_torso_transparent.png" width="350" /> 
 </p>
 
 
