@@ -602,11 +602,6 @@ class Ultrasound(SingleArmEnv):
 
         terminated = False
 
-        # Prematurely terminate if contacting the table with the probe
-        if self._check_probe_contact_with_table():
-            print(40 * '-' + " COLLIDED WITH TABLE " + 40 * '-')
-            terminated = True
-
         # Prematurely terminate if reaching joint limits
         if self.robots[0].check_q_limits():
             print(40 * '-' + " JOINT LIMIT " + 40 * '-')
