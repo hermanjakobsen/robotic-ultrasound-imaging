@@ -159,17 +159,20 @@ class Ultrasound(SingleArmEnv):
         self.ori_error_mul = 0.2
         self.vel_error_mul = 45
         self.force_error_mul = 0.7
+        self.der_force_error_mul = 0.01
 
         # reward multipliers
         self.pos_reward_mul = 5
         self.ori_reward_mul = 1
         self.vel_reward_mul = 1
         self.force_reward_mul = 3
+        self.der_force_reward_mul = 2
 
         # desired states
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
-        self.goal_velocity = 0.04           # norm of velocity vector
-        self.goal_contact_z_force = 5       # (N)  
+        self.goal_velocity = 0.04                   # norm of velocity vector
+        self.goal_contact_z_force = 5               # (N)  
+        self.goal_der_contact_z_force = 50   
 
         # early termination configuration
         self.pos_error_threshold = 1.0
@@ -253,8 +256,12 @@ class Ultrasound(SingleArmEnv):
         self.force_error = np.square(self.force_error_mul * (self.z_contact_force_running_mean - self.goal_contact_z_force))
         self.force_reward = self.force_reward_mul * np.exp(-1 * self.force_error) if self._check_probe_contact_with_torso() else 0
 
+        # derivative force
+        self.der_force_error = np.square(self.der_force_error_mul * (self.der_z_contact_force - self.goal_der_contact_z_force))
+        self.der_force_reward = self.der_force_reward_mul * np.exp(-1 * self.der_force_error) if self._check_probe_contact_with_torso() else 0
+
         # add rewards
-        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward)
+        reward += (self.pos_reward + self.ori_reward + self.vel_reward + self.force_reward + self.der_force_reward)
 
         return reward
 
@@ -367,6 +374,10 @@ class Ultrasound(SingleArmEnv):
             return self.z_contact_force_running_mean - self.goal_contact_z_force
 
         @sensor(modality=modality)
+        def eef_contact_derivative_force_z_diff(obs_cache):
+            return self.der_z_contact_force - self.goal_der_contact_z_force
+
+        @sensor(modality=modality)
         def eef_vel_diff(obs_cache):
             return self.vel_running_mean - self.goal_velocity
 
@@ -377,7 +388,12 @@ class Ultrasound(SingleArmEnv):
             pose_error = np.concatenate((pos_error, quat_error))
             return pose_error
 
-        sensors += [eef_contact_force, eef_torque, eef_vel, eef_contact_force_z_diff, eef_vel_diff, eef_pose_diff]
+        sensors += [
+            eef_contact_force, 
+            eef_torque, eef_vel, 
+            eef_contact_force_z_diff, 
+            eef_contact_derivative_force_z_diff, 
+            eef_vel_diff, eef_pose_diff]
 
         names = [s.__name__ for s in sensors]
 
@@ -443,6 +459,12 @@ class Ultrasound(SingleArmEnv):
         # update controller with new initial joints
         self.robots[0].controller.update_initial_joints(init_qpos)
 
+        # initialize previously contact force measurement
+        self.prev_z_contact_force = 0
+
+        # intialize derivative of contact force
+        self.der_z_contact_force = 0
+        
         # initialize running mean of velocity 
         self.vel_running_mean = np.linalg.norm(self.robots[0]._hand_vel)
 
@@ -462,6 +484,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_running_mean_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_derivative_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
@@ -472,6 +495,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ori_reward = np.array(np.zeros(self.horizon))
             self.data_vel_reward = np.array(np.zeros(self.horizon))
             self.data_force_reward = np.array(np.zeros(self.horizon))
+            self.data_der_force_reward = np.array(np.zeros(self.horizon))
 
             # policy/controller data
             self.data_action = np.array(np.zeros((self.horizon, self.robots[0].action_dim)))
@@ -505,8 +529,13 @@ class Ultrasound(SingleArmEnv):
         # update velocity running mean (simple moving average)
         self.vel_running_mean += ((np.linalg.norm(self.robots[0]._hand_vel) - self.vel_running_mean) / self.timestep)
 
+        # update derivative of contact force
+        z_contact_force = self.sim.data.cfrc_ext[self.probe_id][-1]
+        self.der_z_contact_force = (z_contact_force - self.prev_z_contact_force) / self.control_timestep
+        self.prev_z_contact_force = z_contact_force
+
         # update contact force running mean (exponential moving average)
-        self.z_contact_force_running_mean = self.alpha * self.sim.data.cfrc_ext[self.probe_id][-1] + (1 - self.alpha) * self.z_contact_force_running_mean
+        self.z_contact_force_running_mean = self.alpha * z_contact_force + (1 - self.alpha) * self.z_contact_force_running_mean
 
         # check for early termination
         if self.early_termination:
@@ -525,6 +554,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
             self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
             self.data_ee_z_running_mean_contact_force[self.timestep - 1] = self.z_contact_force_running_mean
+            self.data_ee_z_derivative_contact_force[self.timestep - 1] = self.der_z_contact_force
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
             self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
             self.data_q_torques[self.timestep - 1] = self.robots[0].torques
@@ -535,6 +565,7 @@ class Ultrasound(SingleArmEnv):
             self.data_ori_reward[self.timestep - 1] = self.ori_reward
             self.data_vel_reward[self.timestep - 1] = self.vel_reward
             self.data_force_reward[self.timestep - 1] = self.force_reward
+            self.data_der_force_reward[self.timestep - 1] = self.der_force_reward
 
             # policy/controller data
             self.data_action[self.timestep - 1] = action
@@ -553,6 +584,7 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_z_contact_force, sim_data_fldr, "ee_z_contact_force")
             self._save_data(self.data_ee_z_desired_contact_force, sim_data_fldr, "ee_z_desired_contact_force")
             self._save_data(self.data_ee_z_running_mean_contact_force, sim_data_fldr, "ee_z_running_mean_contact_force")
+            self._save_data(self.data_ee_z_derivative_contact_force, sim_data_fldr, "ee_z_derivative_contact_force")
             self._save_data(self.data_is_contact, sim_data_fldr, "is_contact")
             self._save_data(self.data_q_pos, sim_data_fldr, "q_pos")
             self._save_data(self.data_q_torques, sim_data_fldr, "q_torques")
@@ -564,6 +596,7 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ori_reward, reward_data_fdlr, "ori")
             self._save_data(self.data_vel_reward, reward_data_fdlr, "vel")
             self._save_data(self.data_force_reward, reward_data_fdlr, "force")
+            self._save_data(self.data_der_force_reward, reward_data_fdlr, "derivative_force")
 
             # policy/controller data
             self._save_data(self.data_action, "policy_data", "action")
@@ -773,8 +806,7 @@ class Ultrasound(SingleArmEnv):
         """
         pos = np.array(self.traj_pt)
         if self.initial_probe_pos_randomization:
-            # Add noise to z-position
-            pos = self._add_noise_to_inital_pos(pos)
+            pos = self._add_noise_to_pos(pos)
 
         pos = self._convert_robosuite_to_toolbox_xpos(pos)
         ori_euler = mat2euler(quat2mat(self.goal_quat))
@@ -820,9 +852,9 @@ class Ultrasound(SingleArmEnv):
             return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
 
 
-    def _add_noise_to_inital_pos(self, init_pos):
+    def _add_noise_to_pos(self, init_pos):
         """
-        Adds Gaussian noise (variance) to the initial probe position.
+        Adds Gaussian noise (variance) to the position.
 
         Args:
             init_pos (np.array): initial probe position 
