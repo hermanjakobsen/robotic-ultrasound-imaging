@@ -19,3 +19,4 @@ ppo_ultrasound_tensorboard/
 reward_data/
 simulation_data/
 trained_models/
+policy_data/
