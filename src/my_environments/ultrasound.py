@@ -20,7 +20,7 @@ from robosuite.models.base import MujocoModel
 
 import robosuite.utils.transform_utils as T
 
-from my_models.objects import SoftTorsoObject, BoxObject
+from my_models.objects import SoftTorsoObject, BoxObject, SoftBoxObject
 from my_models.tasks import UltrasoundTask
 from my_models.arenas import UltrasoundArena
 from utils.quaternion import distance_quat, difference_quat
@@ -91,6 +91,7 @@ class Ultrasound(SingleArmEnv):
         deterministic_trajectory (bool): If True, chooses a deterministic trajectory which goes along the x-axis of the torso.
         torso_solref_randomization (bool): If True, randomize the stiffness and damping parameter of the torso. 
         initial_probe_pos_randomization (bool): If True, Gaussian noise will be added to the initial position of the probe.
+        use_box_torso (bool): If True, use a box shaped soft body. Else, use a cylinder shaped soft body
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -128,6 +129,7 @@ class Ultrasound(SingleArmEnv):
         deterministic_trajectory=False,
         torso_solref_randomization=False,
         initial_probe_pos_randomization=False,
+        use_box_torso=False,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -145,7 +147,7 @@ class Ultrasound(SingleArmEnv):
 
         # settings for joint initialization noise (Gaussian)
         self.mu = 0
-        self.sigma = 0.015
+        self.sigma = 0.010
 
         # settings for contact force running mean
         self.alpha = 0.1    # decay factor (high alpha -> discounts older observations faster). Must be in (0, 1)
@@ -179,10 +181,10 @@ class Ultrasound(SingleArmEnv):
         self.ori_error_threshold = 0.10
 
         # examination trajectory
-        self.top_torso_offset = 0.041     # offset from z_center of torso to top of torso
-        self.x_range = 0.15               # how large the torso is from center to end in x-direction
-        self.y_range = 0.05 #0.11               # how large the torso is from center to end in y-direction
-        self.grid_pts = 50                # how many points in the grid
+        self.top_torso_offset = 0.039 if use_box_torso else 0.041      # offset from z_center of torso to top of torso
+        self.x_range = 0.15                                 # how large the torso is from center to end in x-direction
+        self.y_range = 0.09 if use_box_torso else 0.05      # how large the torso is from center to end in y-direction
+        self.grid_pts = 50                                  # how many points in the grid
                                             
         # whether to use ground-truth object states
         self.use_object_obs = use_object_obs
@@ -198,6 +200,7 @@ class Ultrasound(SingleArmEnv):
         self.early_termination = early_termination
         self.save_data = save_data
         self.deterministic_trajectory = deterministic_trajectory
+        self.use_box_torso = use_box_torso
 
         super().__init__(
             robots=robots,
@@ -283,7 +286,7 @@ class Ultrasound(SingleArmEnv):
         mujoco_arena.set_origin([0, 0, 0])
 
         # Initialize torso object
-        self.torso = SoftTorsoObject(name="torso")
+        self.torso = SoftBoxObject(name="torso") if self.use_box_torso else SoftTorsoObject(name="torso")
 
         if self.torso_solref_randomization:
             # Randomize torso's stiffness and damping (values are taken from my project thesis)
@@ -393,7 +396,8 @@ class Ultrasound(SingleArmEnv):
             eef_torque, eef_vel, 
             eef_contact_force_z_diff, 
             eef_contact_derivative_force_z_diff, 
-            eef_vel_diff, eef_pose_diff]
+            eef_vel_diff, 
+            eef_pose_diff]
 
         names = [s.__name__ for s in sensors]
 
@@ -753,7 +757,7 @@ class Ultrasound(SingleArmEnv):
         else:   
             start_point = self._get_waypoint(grid)
             end_point = self._get_waypoint(grid)
-
+        
         milestones = np.array([start_point, end_point])
         self.num_waypoints = np.size(milestones, 0)
 

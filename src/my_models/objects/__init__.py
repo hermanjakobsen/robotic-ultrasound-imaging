@@ -1,1 +1,1 @@
-from .xml_objects import SoftTorsoObject, BoxObject
+from .xml_objects import SoftTorsoObject, BoxObject, SoftBoxObject
