@@ -52,34 +52,55 @@ def plot_eef_vel(vel_filename, mean_vel_filename, desired_vel_filename, time_fil
     plt.show()
 
 
-def plot_contact_and_contact_force(force_filename, mean_force_filename, desired_force_filename, time_filename):
+def plot_contact_and_contact_force(
+        force_filename, mean_force_filename, 
+        derivative_force_filename, 
+        desired_force_filename, 
+        time_filename):
+
     force = pd.read_csv(force_filename, header=None)
     mean_force = pd.read_csv(mean_force_filename, header=None)
-    des_force = pd.read_csv(desired_force_filename, header=None)
+    desired_force = pd.read_csv(desired_force_filename, header=None)
+    derivative_force = pd.read_csv(derivative_force_filename, header=None)
     time = pd.read_csv(time_filename, header=None) 
 
     plt.figure()
     plt.plot(time, force, label="force")
     plt.plot(time, mean_force, label="mean_force")
-    plt.plot(time, des_force, "--", label="goal_force")
+    plt.plot(time, desired_force, "--", label="goal_force")
 
     plt.legend()
     plt.xlabel("Completed episode (%)")
     plt.title("Contact force z")
+
+    plt.figure()
+    plt.plot(time, derivative_force)
+
+    plt.xlabel("Completed episode (%)")
+    plt.title("Derivative contact force z")
+
     plt.show()
 
 
-def plot_rewards(pos_reward_filename, ori_reward_filename, vel_reward_filename, force_reward_filename, time_filename):
+def plot_rewards(
+    pos_reward_filename, 
+    ori_reward_filename, 
+    vel_reward_filename, 
+    force_reward_filename,
+    der_force_reward_filename, 
+    time_filename):
+
     pos_reward = pd.read_csv(pos_reward_filename, header=None)
     ori_reward = pd.read_csv(ori_reward_filename, header=None)
     vel_reward = pd.read_csv(vel_reward_filename, header=None)
     force_reward = pd.read_csv(force_reward_filename, header=None)
+    der_force_reward = pd.read_csv(der_force_reward_filename, header=None)
 
     time = pd.read_csv(time_filename, header=None)
 
-    labels = ["pos", "ori", "vel", "force"]
-    colors = ['red', 'black', 'blue', 'green']
-    rewards = [pos_reward, ori_reward, vel_reward, force_reward]
+    labels = ["pos", "ori", "vel", "force", "der_force"]
+    colors = ['red', 'black', 'blue', 'green', "purple"]
+    rewards = [pos_reward, ori_reward, vel_reward, force_reward, der_force_reward]
 
     fig, axs = plt.subplots(len(rewards))
     fig.suptitle("Rewards")
@@ -272,10 +293,27 @@ def plot_training_rew_mean(rew_mean_filename):
 
 def plot_sim_data(run_num):
     num = str(run_num)
-    plot_eef_pos("simulation_data/ee_pos_" + num + ".csv", "simulation_data/ee_goal_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_eef_vel("simulation_data/ee_vel_" + num + ".csv", "simulation_data/ee_running_mean_vel_" + num + ".csv", "simulation_data/ee_goal_vel_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_contact_and_contact_force("simulation_data/ee_z_contact_force_" + num + ".csv", "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", "simulation_data/ee_z_desired_contact_force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_rewards("reward_data/pos_" + num + ".csv", "reward_data/ori_" + num + ".csv", "reward_data/vel_" + num + ".csv", "reward_data/force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_eef_pos(
+        "simulation_data/ee_pos_" + num + ".csv", 
+        "simulation_data/ee_goal_pos_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv")
+    plot_eef_vel("simulation_data/ee_vel_" + num + ".csv", 
+        "simulation_data/ee_running_mean_vel_" + num + ".csv", 
+        "simulation_data/ee_goal_vel_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv")
+    plot_contact_and_contact_force(
+        "simulation_data/ee_z_contact_force_" + num + ".csv", 
+        "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", 
+        "simulation_data/ee_z_derivative_contact_force_" + num + ".csv", 
+        "simulation_data/ee_z_desired_contact_force_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv")
+    plot_rewards(
+        "reward_data/pos_" + num + ".csv", 
+        "reward_data/ori_" + num + ".csv", 
+        "reward_data/vel_" + num + ".csv", 
+        "reward_data/force_" + num + ".csv",
+        "reward_data/derivative_force_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv")
     #plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")

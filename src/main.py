@@ -1,3 +1,4 @@
+from Cython.Compiler.ParseTreeTransforms import FindInvalidUseOfFusedTypes
 import robosuite as suite
 import gym
 import os.path as osp
@@ -32,29 +33,33 @@ def run_simulation():
         "output_min": [-0.05, -0.05, -0.05, -0.5, -0.5, -0.5],
         "kp": 300,
         "damping_ratio": 1,
-        "impedance_mode": "variable_z",
-        "kp_limits": [0, 1000],
+        "impedance_mode": "fixed",
+        "kp_limits": [0, 500],
+        "kp_input_max": 1,
+        "kp_input_min": 0,
         "damping_ratio_limits": [0, 2],
         "position_limits": None,
         "orientation_limits": None,
         "uncouple_pos_ori": True,
-        "control_delta": False,
+        "control_delta": True,
         "interpolation": None,
         "ramp_ratio": 0.2
     }
-    env_options["control_freq"] = 100
+    env_options["control_freq"] = 500
     env_options["has_renderer"] = True
     env_options["has_offscreen_renderer"] = False
     env_options["render_camera"] = None
     env_options["use_camera_obs"] = False
     env_options["use_object_obs"] = False
-    env_options["horizon"] = 500
+    env_options["horizon"] = 1000
     env_options["early_termination"] = False
     env_options["save_data"] = False
+    env_options["torso_solref_randomization"] = False
+    env_options["initial_probe_pos_randomization"] = True
+    env_options["deterministic_trajectory"] = False
+    env_options["use_box_torso"] = False
 
     env = suite.make(env_id, **env_options)
-
-    traj = env.get_trajectory()
 
     # reset the environment to prepare for a rollout
     obs = env.reset()
@@ -64,8 +69,9 @@ def run_simulation():
     
     for t in range(env.horizon):
         #print(t)
-
-        action = [1, 1, 500, 1, 1, 1, 0.01]
+        action = [0, 0, 0, 0, 0, 0]
+        print(action)
+        #action = [5, 5, 5]
 
         obs, reward, done, _ = env.step(action) # play action
 
@@ -120,30 +126,9 @@ def test_hmfc():
     print("rollout completed with return {}".format(ret))
 
 
-def plot_data(run_num):
-    num = str(run_num)
-    plt.plot_eef_pos("simulation_data/ee_pos_" + num + ".csv", "simulation_data/ee_goal_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plt.plot_eef_vel("simulation_data/ee_vel_" + num + ".csv", "simulation_data/ee_running_mean_vel_" + num + ".csv", "simulation_data/ee_goal_vel_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plt.plot_contact_and_contact_force("simulation_data/ee_z_contact_force_" + num + ".csv", "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", "simulation_data/ee_z_desired_contact_force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plt.plot_rewards("reward_data/pos_" + num + ".csv", "reward_data/ori_" + num + ".csv", "reward_data/vel_" + num + ".csv", "reward_data/force_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    #plt.plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plt.plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plt.plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    #plt.plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    #plt.plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-
-
-def plot_hmfc_data(run_num):
-    num = str(run_num)
-    plt.hmfc_plot_ee_pos("hmfc_test_data/ee_pos_" + num + ".csv", "hmfc_test_data/ee_goal_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
-    plt.hmfc_plot_z_force("hmfc_test_data/ee_force_" + num + ".csv",  "hmfc_test_data/ee_force_mean_" + num + ".csv", "hmfc_test_data/ee_goal_force_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
-    plt.hmfc_plot_z_pos("hmfc_test_data/ee_z_pos_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
-    plt.hmfc_plot_torques("hmfc_test_data/desired_torque_" + num + ".csv", "hmfc_test_data/compensation_torque_" + num + ".csv", "hmfc_test_data/external_torque_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
-
-
 #run_simulation()
-plot_data(8)
+#plt.plot_sim_data(16)
 #test_hmfc()
-#plot_hmfc_data(1)
+#plt.plot_hmfc_data(1)
 
-
+#plt.plot_training_rew_mean("tensorboard_rew_mean/run-scaled_kp_1-tag-rollout_ep_rew_mean.csv")
