@@ -3,7 +3,7 @@ training: True   # Whether to train a model or not
 
 # Settings for stable-baselines RL algorithm
 sb_config:
-  total_timesteps: 5.0e+6
+  total_timesteps: 40.0e+6
   check_pt_interval: 1.0e+6
   num_cpu: 64
 
@@ -39,7 +39,7 @@ robosuite:
     kp: 300
     damping_ratio: 1
     impedance_mode: "tracking"
-    kp_limits: [1, 500]
+    kp_limits: [0, 500]
     kp_input_max: 1
     kp_input_min: 0
     damping_ratio_limits: [0, 2]
@@ -52,8 +52,9 @@ robosuite:
   early_termination: True
   save_data: False
   deterministic_trajectory: False
-  torso_solref_randomization: False
-  initial_probe_pos_randomization: False
+  torso_solref_randomization: True
+  initial_probe_pos_randomization: True
+  use_box_torso: True
 
 # Settings used for file handling and logging (save/load destination etc)
 file_handling:

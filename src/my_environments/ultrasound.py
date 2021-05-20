@@ -91,7 +91,7 @@ class Ultrasound(SingleArmEnv):
         deterministic_trajectory (bool): If True, chooses a deterministic trajectory which goes along the x-axis of the torso.
         torso_solref_randomization (bool): If True, randomize the stiffness and damping parameter of the torso. 
         initial_probe_pos_randomization (bool): If True, Gaussian noise will be added to the initial position of the probe.
-        use_box_torso (bool): If True, use a box shaped soft body. Else, use a cylinder shaped soft body
+        use_box_torso (bool): If True, use a box shaped soft body. Else, use a cylinder shaped soft body.
     Raises:
         AssertionError: [Invalid number of robots specified]
     """
@@ -129,7 +129,7 @@ class Ultrasound(SingleArmEnv):
         deterministic_trajectory=False,
         torso_solref_randomization=False,
         initial_probe_pos_randomization=False,
-        use_box_torso=False,
+        use_box_torso=True,
     ):
         assert gripper_types == "UltrasoundProbeGripper",\
             "Tried to specify gripper other than UltrasoundProbeGripper in Ultrasound environment!"
@@ -174,7 +174,7 @@ class Ultrasound(SingleArmEnv):
         self.goal_quat = np.array([-0.69192486,  0.72186726, -0.00514253, -0.01100909]) # Upright probe orientation found from experimenting (x,y,z,w)
         self.goal_velocity = 0.04                   # norm of velocity vector
         self.goal_contact_z_force = 5               # (N)  
-        self.goal_der_contact_z_force = 50   
+        self.goal_der_contact_z_force = 0           # derivative of contact force   
 
         # early termination configuration
         self.pos_error_threshold = 1.0
@@ -392,8 +392,9 @@ class Ultrasound(SingleArmEnv):
             return pose_error
 
         sensors += [
-            eef_contact_force, 
-            eef_torque, eef_vel, 
+            eef_contact_force,
+            eef_torque, 
+            eef_vel, 
             eef_contact_force_z_diff, 
             eef_contact_derivative_force_z_diff, 
             eef_vel_diff, 
