@@ -4,36 +4,56 @@ import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 
-#mpl.style.use("seaborn")
+mpl.style.use("seaborn")
 
-def plot_eef_pos(pos_filename, pos_desired_filename, time_filename):
+plt.rcParams.update({
+    "text.usetex": True,
+    "font.family": "DejaVu Sans",
+    "font.sans-serif": ["Helvetica"],
+    "font.size": 16,
+    "figure.autolayout": True,
+    "legend.fontsize": 'x-large',
+    'axes.labelsize': 'large',
+    'axes.titlesize':'large',
+    'xtick.labelsize':'medium',
+    'ytick.labelsize':'medium'})
+
+
+def plot_eef_pos(pos_filename, pos_desired_filename, time_filename, model_name):
     pos = pd.read_csv(pos_filename, header=None) 
     pos_des = pd.read_csv(pos_desired_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
-    labels = ["x", "y"]
-    labels_des = ["x_goal", "y_goal"]              # labels for desired values
+    labels = [r"$x$", r"$y$", r"$z$"]
+    labels_des = [r"$x_{goal}$", r"$y_{goal}$", r"$z_{traj}$"]              # labels for desired values
+
+    for i in range(len(labels)):
+        plt.figure()
+        plt.plot(time, pos[i], label=labels[i])
+        plt.plot(time, pos_des[i], "--", label=labels_des[i])
+
+        plt.legend()
+        plt.xlabel(r"Completed episode (\%)")
+        plt.title(labels[i] + "-position")
+
+        pos_dir = labels[i].replace("$", "")
+        plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/" + pos_dir+ "_pos.eps", bbox_inches="tight")
+        
+
+def plot_eef_quat_diff(quat_diff_filename, time_filename, model_name):
+    quat_diff = pd.read_csv(quat_diff_filename, header=None)
+    time = pd.read_csv(time_filename, header=None)
 
     plt.figure()
-    plt.plot(time, pos[0], label=labels[0])
-    plt.plot(time, pos_des[0], "--", label=labels_des[0])
+    plt.plot(time, quat_diff)
 
-    plt.legend()
-    plt.xlabel("Completed episode (%)")
-    plt.title("End-effector position")
+    plt.xlabel(r"Completed episode (\%)")
+    plt.title("Quaternion distance")
 
-    plt.figure()
-    plt.plot(time, pos[1], label=labels[1])
-    plt.plot(time, pos_des[1], "--", label=labels_des[1])
-
-    plt.legend()
-    plt.xlabel("Completed episode (%)")
-    plt.title("End-effector position")
-
-    plt.show()
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/quat_diff.eps", bbox_inches="tight")
 
 
-def plot_eef_vel(vel_filename, mean_vel_filename, desired_vel_filename, time_filename):
+def plot_eef_vel(vel_filename, mean_vel_filename, desired_vel_filename, time_filename, model_name):
     vel = pd.read_csv(vel_filename, header=None)
     vel = vel.apply(np.linalg.norm, axis=1)
     mean_vel = pd.read_csv(mean_vel_filename, header=None)
@@ -41,45 +61,53 @@ def plot_eef_vel(vel_filename, mean_vel_filename, desired_vel_filename, time_fil
     time = pd.read_csv(time_filename, header=None)
 
     plt.figure()
-    plt.plot(time, vel, label="vel")
-    plt.plot(time, mean_vel, label="mean_vel")
-    plt.plot(time, des_vel, "--", label="goal_vel")
+    plt.plot(time, vel, label=r"$\left\Vert \mathbf{v} \right\Vert$")
+    plt.plot(time, des_vel, "--", label=r"$v_{goal}$")
+    plt.plot(time, mean_vel, label=r"$\bar{v}$")
 
     plt.legend()
-    plt.xlabel("Completed episode (%)")
+    plt.xlabel(r"Completed episode (\%)")
     plt.title("End-effector velocity")
 
-    plt.show()
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/vel.eps", bbox_inches="tight")
 
 
 def plot_contact_and_contact_force(
         force_filename, mean_force_filename, 
         derivative_force_filename, 
-        desired_force_filename, 
-        time_filename):
+        desired_force_filename,
+        desired_derivative_filename, 
+        time_filename,
+        model_name):
 
     force = pd.read_csv(force_filename, header=None)
     mean_force = pd.read_csv(mean_force_filename, header=None)
     desired_force = pd.read_csv(desired_force_filename, header=None)
     derivative_force = pd.read_csv(derivative_force_filename, header=None)
+    desired_derivative = pd.read_csv(desired_derivative_filename, header=None)
     time = pd.read_csv(time_filename, header=None) 
 
     plt.figure()
-    plt.plot(time, force, label="force")
-    plt.plot(time, mean_force, label="mean_force")
-    plt.plot(time, desired_force, "--", label="goal_force")
+    plt.plot(time, force, label=r"$f$")
+    plt.plot(time, desired_force, "--", label=r"$f_{goal}$")
+    plt.plot(time, mean_force, label=r"$\bar{f}$")
 
     plt.legend()
-    plt.xlabel("Completed episode (%)")
-    plt.title("Contact force z")
+    plt.xlabel(r"Completed episode (\%)")
+    plt.title(r"Contact force $z$-direction")
+
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/force.eps", bbox_inches="tight")
 
     plt.figure()
-    plt.plot(time, derivative_force)
+    plt.plot(time, derivative_force, label=r"$f'$")
+    plt.plot(time, desired_derivative, "--", label=r"$f'_{goal}$")
 
-    plt.xlabel("Completed episode (%)")
-    plt.title("Derivative contact force z")
+    plt.legend()
+    plt.xlabel(r"Completed episode (\%)")
+    plt.title(r"Derivative of contact force $z$-direcion")
 
-    plt.show()
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/der_force.eps", bbox_inches="tight")
+
 
 
 def plot_rewards(
@@ -88,7 +116,8 @@ def plot_rewards(
     vel_reward_filename, 
     force_reward_filename,
     der_force_reward_filename, 
-    time_filename):
+    time_filename,
+    model_name):
 
     pos_reward = pd.read_csv(pos_reward_filename, header=None)
     ori_reward = pd.read_csv(ori_reward_filename, header=None)
@@ -98,18 +127,22 @@ def plot_rewards(
 
     time = pd.read_csv(time_filename, header=None)
 
-    labels = ["pos", "ori", "vel", "force", "der_force"]
+    labels = ["position", "orientation", "force", "derivative force", "velocity"]
     colors = ['red', 'black', 'blue', 'green', "purple"]
-    rewards = [pos_reward, ori_reward, vel_reward, force_reward, der_force_reward]
+    rewards = [pos_reward, ori_reward, force_reward, der_force_reward, vel_reward]
 
     fig, axs = plt.subplots(len(rewards))
+
     fig.suptitle("Rewards")
     for i in range(len(rewards)):
+        if i < len(rewards) - 1:
+            axs[i].xaxis.set_major_locator(plt.NullLocator())
         axs[i].plot(time, rewards[i], color=colors[i])
         axs[i].set_title(labels[i])
 
-    plt.xlabel("Completed episode (%)")
-    plt.show()
+    plt.xlabel("Completed episode (\%)")
+
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/rewards.eps", bbox_inches="tight")
 
 
 def plot_qpos(qpos_filename, time_filename):
@@ -124,9 +157,7 @@ def plot_qpos(qpos_filename, time_filename):
         axs[i].plot(time, qpos[i], color=colors[i])
         axs[i].set_title("q" + str(i + 1))
     
-    plt.xlabel("Completed episode (%)")
-    plt.show()
-
+    plt.xlabel("Completed episode (\%)")
 
 
 def plot_qtorques(qtorque_filename, time_filename, title=None):
@@ -146,8 +177,7 @@ def plot_qtorques(qtorque_filename, time_filename, title=None):
         axs[i].set_title("q" + str(i + 1))
         axs[i].set(ylabel="N")
     
-    plt.xlabel("Completed episode (%)")
-    plt.show()
+    plt.xlabel("Completed episode (\%)")
 
 
 def plot_controller_delta(action_filename, time_filename):
@@ -162,22 +192,21 @@ def plot_controller_delta(action_filename, time_filename):
     controller_delta = action.iloc[:, -6:]
     controller_delta.columns = [i for i in range(len(controller_delta.columns))]  # reset column indices
 
-    labels = ["x", "y", "z", "ax", "ay", "az"]
+    labels = ["$x$", "$y$", "$z$", "$ax$", "$ay$", "$az$"]
 
     fig , axs = plt.subplots(len(controller_delta.columns))
     fig.suptitle("Joint commands")
     for i in range(len(controller_delta.columns)):
         axs[i].plot(time, controller_delta[i])
         axs[i].set_title(labels[i])
-    plt.xlabel("Completed episode (%)")
-    plt.show()
+    plt.xlabel("Completed episode (\%)")
 
 
-def plot_controller_gains(action_filename, time_filename):
+def plot_controller_gains(action_filename, time_filename, model_name):
     action = pd.read_csv(action_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
-    labels = ["x", "y", "z", "ax", "ay", "az"]
+    labels = ["$x$", "$y$", "$z$", "$ax$", "$ay$", "$az$"]
     colors = ['red', 'black', 'blue', 'brown', 'green', "purple"]
 
     # variable mode
@@ -194,10 +223,13 @@ def plot_controller_gains(action_filename, time_filename):
         fig1, axs1 = plt.subplots(len(damping_ratio.columns))
         fig1.suptitle("Controller damping ratio")
         for i in range(len(damping_ratio.columns)):
+            if i < len(damping_ratio.columns) - 1:
+                axs1[i].xaxis.set_major_locator(plt.NullLocator())
+
             axs1[i].plot(time, damping_ratio[i], color=colors[i])
             axs1[i].set_title(labels[i])
 
-        plt.xlabel("Completed episode (%)")
+        plt.xlabel("Completed episode (\%)")
 
     # variable_kp mode
     elif len(action.columns) == 12:
@@ -206,12 +238,12 @@ def plot_controller_gains(action_filename, time_filename):
 
     # tracking mode
     elif len(action.columns) == 6:
-        kp = scale_gain(action, 1, 500)
+        kp = scale_gain(action, 0, 500)
         kd = 2 * np.sqrt(kp)
 
     # variable_z mode
     elif len(action.columns) == 7:
-        kp = scale_gain(action.iloc[:, :-1], 1, 500)
+        kp = scale_gain(action.iloc[:, :-1], 0, 500)
         kd = 2 * np.sqrt(kp)
 
     else:
@@ -222,28 +254,35 @@ def plot_controller_gains(action_filename, time_filename):
     kd.columns = [i for i in range(len(kd.columns))] 
 
     fig2, axs2 = plt.subplots(len(kd.columns))
-    fig2.suptitle("Controller Kd")
+    fig2.suptitle("Controller $k_d$ gains")
     for i in range(len(kd.columns)):
+        if i < len(kd.columns) - 1:
+            axs2[i].xaxis.set_major_locator(plt.NullLocator())
+
         axs2[i].plot(time, kd[i], color=colors[i])
         axs2[i].set_title(labels[i])
 
-    plt.xlabel("Completed episode (%)")
+    plt.xlabel("Completed episode (\%)")
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/kd.eps", bbox_inches="tight")
+
 
     # reset column indices
     kp.columns = [i for i in range(len(kp.columns))] 
 
     fig3, axs3 = plt.subplots(len(kp.columns))
-    fig3.suptitle("Controller Kp")
+    fig3.suptitle("Controller $k_p$ gains")
     for i in range(len(kp.columns)):
+        if i < len(kp.columns) - 1:
+            axs3[i].xaxis.set_major_locator(plt.NullLocator())
+        
         axs3[i].plot(time, kp[i], color=colors[i])
         axs3[i].set_title(labels[i])
 
-    plt.xlabel("Completed episode (%)")
+    plt.xlabel("Completed episode (\%)")
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/kp.eps", bbox_inches="tight")
 
-    plt.show()
 
-
-def plot_delta_z(action_filename, time_filename):
+def plot_delta_z(action_filename, time_filename, model_name):
     action = pd.read_csv(action_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
 
@@ -260,7 +299,6 @@ def plot_delta_z(action_filename, time_filename):
     plt.legend()
     plt.xlabel("Completed episode (%)")
     plt.title("Action - delta_z")
-    plt.show()
 
 
 def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
@@ -280,45 +318,58 @@ def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
     plt.xlabel("Completed episode (%)")
     plt.title("End-effector position")
 
-    plt.show()
-
 
 def plot_training_rew_mean(rew_mean_filename):
     rew_mean = pd.read_csv(rew_mean_filename)
 
     res = sns.lineplot(x="Step", y="Value", data=rew_mean)
     plt.title("Training - Episodic mean reward")
-    plt.show()
 
 
-def plot_sim_data(run_num):
+def plot_sim_data(run_num, model_name, show_figs):
     num = str(run_num)
     plot_eef_pos(
         "simulation_data/ee_pos_" + num + ".csv", 
         "simulation_data/ee_goal_pos_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv")
-    plot_eef_vel("simulation_data/ee_vel_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv", 
+        model_name)
+    plot_eef_quat_diff(
+        "simulation_data/ee_diff_quat_" + num + ".csv",
+        "simulation_data/time_" + num + ".csv",
+        model_name)
+    plot_eef_vel(
+        "simulation_data/ee_vel_" + num + ".csv", 
         "simulation_data/ee_running_mean_vel_" + num + ".csv", 
         "simulation_data/ee_goal_vel_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv")
+        "simulation_data/time_" + num + ".csv",
+        model_name)
     plot_contact_and_contact_force(
         "simulation_data/ee_z_contact_force_" + num + ".csv", 
         "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", 
         "simulation_data/ee_z_derivative_contact_force_" + num + ".csv", 
-        "simulation_data/ee_z_desired_contact_force_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv")
+        "simulation_data/ee_z_goal_contact_force_" + num + ".csv", 
+        "simulation_data/ee_z_goal_derivative_contact_force_" + num + ".csv", 
+        "simulation_data/time_" + num + ".csv",
+        model_name)
     plot_rewards(
         "reward_data/pos_" + num + ".csv", 
         "reward_data/ori_" + num + ".csv", 
         "reward_data/vel_" + num + ".csv", 
         "reward_data/force_" + num + ".csv",
         "reward_data/derivative_force_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv")
+        "simulation_data/time_" + num + ".csv",
+        model_name
+        )
     #plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+    plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
     #plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     #plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+
+    if show_figs:
+        plt.show()
+
+  
 
 
 def hmfc_plot_z_force(force_filename, mean, desired_force_filename, time_filename):

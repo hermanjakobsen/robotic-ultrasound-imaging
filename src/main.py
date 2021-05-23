@@ -55,9 +55,9 @@ def run_simulation():
     env_options["early_termination"] = False
     env_options["save_data"] = False
     env_options["torso_solref_randomization"] = False
-    env_options["initial_probe_pos_randomization"] = True
+    env_options["initial_probe_pos_randomization"] = False
     env_options["deterministic_trajectory"] = False
-    env_options["use_box_torso"] = False
+    env_options["use_box_torso"] = True
 
     env = suite.make(env_id, **env_options)
 
@@ -68,15 +68,9 @@ def run_simulation():
     ret = 0.
     
     for t in range(env.horizon):
-        #print(t)
-        action = [0, 0, 0, 0, 0, 0]
-        print(action)
-        #action = [5, 5, 5]
-
+        action = [0.0, 0, 0, 0, 0, 0]
         obs, reward, done, _ = env.step(action) # play action
-
-        #print(reward)
-        #ret += reward
+        ret += reward
         env.render()
         if done:
             env.close()
@@ -127,7 +121,8 @@ def test_hmfc():
 
 
 #run_simulation()
-#plt.plot_sim_data(16)
+## VICES DATA = 1
+#plt.plot_sim_data(1, "vices", True)
 #test_hmfc()
 #plt.plot_hmfc_data(1)
 

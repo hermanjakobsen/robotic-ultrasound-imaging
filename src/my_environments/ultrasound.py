@@ -481,15 +481,18 @@ class Ultrasound(SingleArmEnv):
             # simulation data
             self.data_ee_pos = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_pos = np.array(np.zeros((self.horizon, 3)))
+            self.data_ee_ori_diff = np.array(np.zeros(self.horizon))
             self.data_ee_vel = np.array(np.zeros((self.horizon, 3)))
             self.data_ee_goal_vel = np.array(np.zeros(self.horizon))
             self.data_ee_running_mean_vel = np.array(np.zeros(self.horizon))
             self.data_ee_quat = np.array(np.zeros((self.horizon, 4)))               # (x,y,z,w)
-            self.data_ee_desired_quat = np.array(np.zeros((self.horizon, 4)))       # (x,y,z,w)
+            self.data_ee_goal_quat = np.array(np.zeros((self.horizon, 4)))          # (x,y,z,w)
+            self.data_ee_diff_quat = np.array(np.zeros(self.horizon))               # (x,y,z,w)
             self.data_ee_z_contact_force = np.array(np.zeros(self.horizon))
-            self.data_ee_z_desired_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_goal_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_running_mean_contact_force = np.array(np.zeros(self.horizon))
             self.data_ee_z_derivative_contact_force = np.array(np.zeros(self.horizon))
+            self.data_ee_z_goal_derivative_contact_force = np.array(np.zeros(self.horizon))
             self.data_is_contact = np.array(np.zeros(self.horizon))
             self.data_q_pos = np.array(np.zeros((self.horizon, self.robots[0].dof)))
             self.data_q_torques = np.array(np.zeros((self.horizon, self.robots[0].dof)))
@@ -555,11 +558,13 @@ class Ultrasound(SingleArmEnv):
             self.data_ee_goal_vel[self.timestep - 1] = self.goal_velocity
             self.data_ee_running_mean_vel[self.timestep -1] = self.vel_running_mean
             self.data_ee_quat[self.timestep - 1] = self._eef_xquat
-            self.data_ee_desired_quat[self.timestep - 1] = self.goal_quat
+            self.data_ee_goal_quat[self.timestep - 1] = self.goal_quat
+            self.data_ee_diff_quat[self.timestep - 1] = distance_quat(convert_quat(self._eef_xquat, to="wxyz"), convert_quat(self.goal_quat, to="wxyz"))
             self.data_ee_z_contact_force[self.timestep - 1] = self.sim.data.cfrc_ext[self.probe_id][-1]
-            self.data_ee_z_desired_contact_force[self.timestep - 1] = self.goal_contact_z_force
+            self.data_ee_z_goal_contact_force[self.timestep - 1] = self.goal_contact_z_force
             self.data_ee_z_running_mean_contact_force[self.timestep - 1] = self.z_contact_force_running_mean
             self.data_ee_z_derivative_contact_force[self.timestep - 1] = self.der_z_contact_force
+            self.data_ee_z_goal_derivative_contact_force[self.timestep - 1] = self.goal_der_contact_z_force
             self.data_is_contact[self.timestep - 1] = self._check_probe_contact_with_torso()
             self.data_q_pos[self.timestep - 1] = self.robots[0]._joint_positions
             self.data_q_torques[self.timestep - 1] = self.robots[0].torques
@@ -585,11 +590,13 @@ class Ultrasound(SingleArmEnv):
             self._save_data(self.data_ee_goal_vel, sim_data_fldr, "ee_goal_vel")
             self._save_data(self.data_ee_running_mean_vel, sim_data_fldr, "ee_running_mean_vel")
             self._save_data(self.data_ee_quat, sim_data_fldr, "ee_quat")
-            self._save_data(self.data_ee_desired_quat, sim_data_fldr, "ee_desired_quat")
+            self._save_data(self.data_ee_goal_quat, sim_data_fldr, "ee_goal_quat")
+            self._save_data(self.data_ee_diff_quat, sim_data_fldr, "ee_diff_quat")
             self._save_data(self.data_ee_z_contact_force, sim_data_fldr, "ee_z_contact_force")
-            self._save_data(self.data_ee_z_desired_contact_force, sim_data_fldr, "ee_z_desired_contact_force")
+            self._save_data(self.data_ee_z_goal_contact_force, sim_data_fldr, "ee_z_goal_contact_force")
             self._save_data(self.data_ee_z_running_mean_contact_force, sim_data_fldr, "ee_z_running_mean_contact_force")
             self._save_data(self.data_ee_z_derivative_contact_force, sim_data_fldr, "ee_z_derivative_contact_force")
+            self._save_data(self.data_ee_z_goal_derivative_contact_force, sim_data_fldr, "ee_z_goal_derivative_contact_force")
             self._save_data(self.data_is_contact, sim_data_fldr, "is_contact")
             self._save_data(self.data_q_pos, sim_data_fldr, "q_pos")
             self._save_data(self.data_q_torques, sim_data_fldr, "q_torques")
@@ -753,8 +760,11 @@ class Ultrasound(SingleArmEnv):
         grid = self._get_torso_grid()
 
         if self.deterministic_trajectory:
-            start_point = [grid[0, 0], 0, self._torso_xpos[-1] + self.top_torso_offset]
-            end_point = [0, 0, self._torso_xpos[-1] + self.top_torso_offset]
+            start_point = [0.062, -0.020,  0.896]
+            end_point = [-0.032, -0.075,  0.896]
+
+            #start_point = [grid[0, 0], grid[1, 4], self._torso_xpos[-1] + self.top_torso_offset]
+            #end_point = [grid[0, int(self.grid_pts / 2) - 1], grid[1, 5], self._torso_xpos[-1] + self.top_torso_offset]
         else:   
             start_point = self._get_waypoint(grid)
             end_point = self._get_waypoint(grid)
@@ -854,7 +864,7 @@ class Ultrasound(SingleArmEnv):
             return np.array([-pos[0] + xpos_offset + 0.08, -pos[1] + 0.025, pos[2] - zpos_offset + 0.15]) 
 
         if self.robots[0].name == "Panda":
-            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.105])
+            return np.array([pos[0] - xpos_offset - 0.06, pos[1], pos[2] - zpos_offset + 0.111])
 
 
     def _add_noise_to_pos(self, init_pos):
