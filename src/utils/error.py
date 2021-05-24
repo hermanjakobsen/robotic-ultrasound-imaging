@@ -105,6 +105,34 @@ def mse_ee_velocity(ee_vel_filepath, ee_mean_vel_filepath, goal_force_filepath, 
     mse(mean_vel, goal, model_name, "mean_velocity")
 
 
+def mean_rewards(
+    pos_reward_filepath, 
+    ori_reward_filepath,
+    force_reward_filepath,
+    der_force_reward_filepath,
+    vel_reward_filepath,
+    model_name):
+    """
+    Calculates the mean of the rewards and saves results to file.
+
+    Args:
+        *_reward_filepath (string): Filepath to * reward.
+        model_name (string): Name of model the rewards are extracted with.
+    """
+    pos_reward_mean = pd.read_csv(pos_reward_filepath, header=None).mean()
+    ori_reward_mean = pd.read_csv(ori_reward_filepath, header=None).mean()
+    force_reward_mean = pd.read_csv(force_reward_filepath, header=None).mean()
+    der_force_reward_mean = pd.read_csv(der_force_reward_filepath, header=None).mean()
+    vel_reward_mean = pd.read_csv(vel_reward_filepath, header=None).mean()
+
+    means = [pos_reward_mean, ori_reward_mean, force_reward_mean, der_force_reward_mean, vel_reward_mean]
+    save_names = ["pos_reward_mean", "ori_reward_mean", "force_reward_mean", "der_force_reward_mean", "vel_reward_mean"]
+
+    for i in range(len(means)):
+        print('lol')
+        save_data(means[i], model_name, save_names[i])
+
+
 def mean_ee_quat_diff(ee_quat_diff_filepath, model_name):
     """
     Calculates the mean of the end-effector quaternion difference between the end-effector quaternion and
@@ -114,7 +142,6 @@ def mean_ee_quat_diff(ee_quat_diff_filepath, model_name):
         ee_quat_diff_filepath (string): Filepath to end-effector quaternion difference.
         model_name (string): Name of model the measurements are extracted with.
     """
-    quat_diff = pd.read_csv(ee_quat_diff_filepath, header=None)
-    mean = quat_diff.mean()
-    save_data(np.array([mean]), model_name, "quat_diff_mean")
+    quat_diff_mean = pd.read_csv(ee_quat_diff_filepath, header=None).mean()
+    save_data(np.array([quat_diff_mean]), model_name, "quat_diff_mean")
 
