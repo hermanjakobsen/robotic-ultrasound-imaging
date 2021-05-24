@@ -10,7 +10,7 @@ def save_data(data, model_name, save_filename):
         model_name (string): Name of the model
         save_filename (string): What to call the saved results
     """
-    fldr = os.path.join("errors", model_name)
+    fldr = os.path.join("error_data", model_name)
     os.makedirs(fldr, exist_ok=True)
     save_path = os.path.join(fldr, save_filename + "_mse" + ".csv")
     pd.DataFrame(np.array(data)).to_csv(save_path, header=None, index=None)
