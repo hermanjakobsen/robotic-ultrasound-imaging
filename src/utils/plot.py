@@ -11,12 +11,13 @@ plt.rcParams.update({
     "font.family": "DejaVu Sans",
     "font.sans-serif": ["Helvetica"],
     "font.size": 16,
+    "figure.figsize": (15, 10),
     "figure.autolayout": True,
     "legend.fontsize": 'x-large',
-    'axes.labelsize': 'large',
-    'axes.titlesize':'large',
-    'xtick.labelsize':'medium',
-    'ytick.labelsize':'medium'})
+    'axes.labelsize': 'x-large',
+    'axes.titlesize':'x-large',
+    'xtick.labelsize':'x-large',
+    'ytick.labelsize':'x-large'})
 
 
 def plot_eef_pos(pos_filename, pos_desired_filename, time_filename, model_name):
@@ -104,7 +105,7 @@ def plot_contact_and_contact_force(
 
     plt.legend()
     plt.xlabel(r"Completed episode (\%)")
-    plt.title(r"Derivative of contact force $z$-direcion")
+    plt.title(r"Derivative of contact force $z$-direction")
 
     plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/der_force.eps", bbox_inches="tight")
 
@@ -282,6 +283,40 @@ def plot_controller_gains(action_filename, time_filename, model_name):
     plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/kp.eps", bbox_inches="tight")
 
 
+def plot_wrench(action_filename, time_filename, model_name):
+    action = pd.read_csv(action_filename, header=None)      # [force_x, force_y, force_z, torque_x, torque_y, torque_z]
+    time = pd.read_csv(time_filename, header=None)
+
+    labels = [r"$f_x$", r"$f_y$", r"$f_z$", r"$\tau_x$", r"$\tau_y$", r"$\tau_z$"]
+
+    dim = int(len(action.columns) / 2)
+    fig_f , ax_f = plt.subplots(dim)
+
+    for i in range(dim):
+        # plot force
+        ax_f[i].plot(time, action.iloc[:, i])
+        ax_f[i].set_title(labels[i])
+        if i < dim - 1:
+            ax_f[i].xaxis.set_major_locator(plt.NullLocator())
+    
+    fig_f.suptitle(r"Controller $f_{des}$")
+    plt.xlabel(r"Completed episode (\%)")
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/force_des.eps", bbox_inches="tight")
+
+    fig_t , ax_t = plt.subplots(dim)
+    for i in range(dim, len(action.columns)):
+        # plot torque
+        ax_t[i - dim].plot(time, action.iloc[:, i])
+        ax_t[i - dim].set_title(labels[i])
+
+        if i < len(action.columns) - 1:
+            ax_t[i- dim].xaxis.set_major_locator(plt.NullLocator())
+    
+    fig_t.suptitle(r"Controller $\tau_{des}$")
+    plt.xlabel(r"Completed episode (\%)")
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/torque_des.eps", bbox_inches="tight")
+    
+
 def plot_delta_z(action_filename, time_filename, model_name):
     action = pd.read_csv(action_filename, header=None)
     time = pd.read_csv(time_filename, header=None)
@@ -360,16 +395,17 @@ def plot_sim_data(run_num, model_name, show_figs):
         "simulation_data/time_" + num + ".csv",
         model_name
         )
-    #plot_controller_delta("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
-    plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+    if model_name != "baseline":    
+        plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+        plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+    else:
+        plot_wrench("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+
     #plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
     #plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
 
     if show_figs:
         plt.show()
-
-  
 
 
 def hmfc_plot_z_force(force_filename, mean, desired_force_filename, time_filename):
