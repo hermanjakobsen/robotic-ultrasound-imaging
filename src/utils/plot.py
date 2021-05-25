@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
+import os
 
 mpl.style.use("seaborn")
 
@@ -361,48 +362,79 @@ def plot_training_rew_mean(rew_mean_filename):
     plt.title("Training - Episodic mean reward")
 
 
-def plot_sim_data(run_num, model_name, show_figs):
-    num = str(run_num)
+def plot_sim_data(identifier, model_name, show_figs):
+    id = str(identifier)
+
+    sim_data_fldr = "simulation_data"
+    reward_data_fldr = "reward_data"
+    policy_data_fldr = "policy_data"
+
+    time_path = os.path.join(sim_data_fldr, "time_" + id + ".csv")
+
+    ee_pos_path = os.path.join(sim_data_fldr, "ee_pos_" + id + ".csv")
+    ee_goal_pos_path = os.path.join(sim_data_fldr, "ee_goal_pos_" + id + ".csv")
+
+    ee_z_force_path = os.path.join(sim_data_fldr, "ee_z_contact_force_" + id + ".csv")
+    ee_mean_z_force_path = os.path.join(sim_data_fldr, "ee_z_running_mean_contact_force_" + id + ".csv")
+    ee_goal_z_force_path = os.path.join(sim_data_fldr, "ee_z_goal_contact_force_" + id + ".csv")
+
+    ee_z_derivative_force_path = os.path.join(sim_data_fldr, "ee_z_derivative_contact_force_" + id + ".csv")
+    ee_goal_derivative_z_force_path = os.path.join(sim_data_fldr, "ee_z_goal_derivative_contact_force_" + id + ".csv")
+
+    ee_vel_path = os.path.join(sim_data_fldr, "ee_vel_" + id + ".csv")
+    ee_mean_vel_path = os.path.join(sim_data_fldr, "ee_running_mean_vel_" + id + ".csv")
+    ee_goal_vel_path = os.path.join(sim_data_fldr, "ee_goal_vel_" + id + ".csv")
+
+    ee_diff_quat_path = os.path.join(sim_data_fldr, "ee_diff_quat_" + id + ".csv")
+
+    pos_reward_path = os.path.join(reward_data_fldr, "pos_" + id + ".csv")
+    ori_reward_path = os.path.join(reward_data_fldr, "ori_" + id + ".csv")
+    force_reward_path = os.path.join(reward_data_fldr, "force_" + id + ".csv")
+    der_reward_path = os.path.join(reward_data_fldr, "derivative_force_" + id + ".csv")
+    vel_reward_path = os.path.join(reward_data_fldr, "vel_" + id + ".csv")
+
+    action_path = os.path.join(policy_data_fldr, "action_" + id + ".csv")
+
     plot_eef_pos(
-        "simulation_data/ee_pos_" + num + ".csv", 
-        "simulation_data/ee_goal_pos_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv", 
+        ee_pos_path, 
+        ee_goal_pos_path, 
+        time_path, 
         model_name)
     plot_eef_quat_diff(
-        "simulation_data/ee_diff_quat_" + num + ".csv",
-        "simulation_data/time_" + num + ".csv",
+        ee_diff_quat_path,
+        time_path,
         model_name)
     plot_eef_vel(
-        "simulation_data/ee_vel_" + num + ".csv", 
-        "simulation_data/ee_running_mean_vel_" + num + ".csv", 
-        "simulation_data/ee_goal_vel_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv",
+        ee_vel_path, 
+        ee_mean_vel_path, 
+        ee_goal_vel_path, 
+        time_path,
         model_name)
     plot_contact_and_contact_force(
-        "simulation_data/ee_z_contact_force_" + num + ".csv", 
-        "simulation_data/ee_z_running_mean_contact_force_" + num + ".csv", 
-        "simulation_data/ee_z_derivative_contact_force_" + num + ".csv", 
-        "simulation_data/ee_z_goal_contact_force_" + num + ".csv", 
-        "simulation_data/ee_z_goal_derivative_contact_force_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv",
+        ee_z_force_path, 
+        ee_mean_z_force_path, 
+        ee_z_derivative_force_path, 
+        ee_goal_z_force_path, 
+        ee_goal_derivative_z_force_path, 
+        time_path,
         model_name)
     plot_rewards(
-        "reward_data/pos_" + num + ".csv", 
-        "reward_data/ori_" + num + ".csv", 
-        "reward_data/vel_" + num + ".csv", 
-        "reward_data/force_" + num + ".csv",
-        "reward_data/derivative_force_" + num + ".csv", 
-        "simulation_data/time_" + num + ".csv",
+        pos_reward_path, 
+        ori_reward_path, 
+        vel_reward_path, 
+        force_reward_path,
+        der_reward_path, 
+        time_path,
         model_name
         )
-    if model_name != "baseline":    
-        plot_controller_gains("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
-        plot_delta_z("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+    if model_name == "baseline":    
+        plot_wrench(action_path, time_path, model_name)
     else:
-        plot_wrench("policy_data/action_" + num + ".csv", "simulation_data/time_" + num + ".csv", model_name)
+        plot_controller_gains(action_path, time_path, model_name)
+        plot_delta_z(action_path, time_path, model_name)
 
-    #plot_qpos("simulation_data/q_pos_" + num + ".csv", "simulation_data/time_" + num + ".csv")
-    #plot_qtorques("simulation_data/q_torques_" + num + ".csv", "simulation_data/time_" + num + ".csv")
+    #plot_qpos("simulation_data/q_pos_" + id + ".csv", "simulation_data/time_" + id + ".csv")
+    #plot_qtorques("simulation_data/q_torques_" + id + ".csv", "simulation_data/time_" + id + ".csv")
 
     if show_figs:
         plt.show()
