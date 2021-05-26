@@ -1,16 +1,13 @@
-from Cython.Compiler.ParseTreeTransforms import FindInvalidUseOfFusedTypes
 import robosuite as suite
-import gym
-import os.path as osp
-import numpy as np
 
 from robosuite.environments.base import register_env
 import robosuite.utils.transform_utils as T
 
 from my_environments import Ultrasound, HMFC
 from my_models.grippers import UltrasoundProbeGripper
-from utils.common import register_gripper, get_elements_in_obs
+from utils.common import register_gripper
 import utils.plot as plt
+import utils.error as error 
 
 register_env(Ultrasound)
 register_env(HMFC)
@@ -110,9 +107,6 @@ def test_hmfc():
     for t in range(env.horizon):
         action = []
         obs, reward, done, _ = env.step(action) # play action
-
-        #print(reward)
-        #ret += reward
         env.render()
         if done:
             env.close()
@@ -120,10 +114,12 @@ def test_hmfc():
     print("rollout completed with return {}".format(ret))
 
 
+## SIMULATION TEST ##
 #run_simulation()
-## VICES DATA = 1
-#plt.plot_sim_data(1, "vices", True)
 #test_hmfc()
-#plt.plot_hmfc_data(1)
 
-#plt.plot_training_rew_mean("tensorboard_rew_mean/run-scaled_kp_1-tag-rollout_ep_rew_mean.csv")
+## PLOTTING ##
+#plt.plot_sim_data("tracking", "test", True)
+#plt.plot_training_rew_mean("training_rew_mean/tracking.csv", "training_rew_mean/variable_z.csv", "training_rew_mean/wrench.csv")
+#error.calculate_error_metrics("variable_z")
+#plt.plot_hmfc_data(1)

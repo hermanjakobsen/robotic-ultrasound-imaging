@@ -147,7 +147,7 @@ def mean_ee_quat_diff(ee_quat_diff_filepath, model_name):
 
 def calculate_error_metrics(model_name):
     """
-    Calculate all relevant error metrics for the given model. Saves result to files.
+    Calculate relevant error metrics (i.e. mse and mean) for the given model. Saves results to files.
 
     Args:
         model_name (string): Name of model the measurements are extracted with.

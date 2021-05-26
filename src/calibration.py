@@ -7,11 +7,13 @@ from scipy import stats
 from robosuite.environments.base import register_env
 from my_environments import Ultrasound
 from my_models.grippers import UltrasoundProbeGripper
+from utils.common import register_gripper
 
-from helper import register_gripper
-from demos import gather_calibration_measurements
+# Disclaimer: The code is depreciated
 
-## REAL LIFE EXPERIMENT
+#### THIS CODE WAS USED FOR THE CALIBRATION TASK IN THE PROJECT THESIS ####
+## REAL LIFE EXPERIMENT ##
+
 def extract_measurement(data, key):
     measurement = []
     for entry in data:
@@ -221,7 +223,7 @@ plt.show()
 '''
 
 
-## SIMULATION EXPERIMENT
+## SIMULATION EXPERIMENT ##
 
 def plot_calibration_simulation_data(z_pos, z_force, z_vel):    
     plt.figure()
