@@ -330,11 +330,11 @@ def plot_delta_z(action_filename, time_filename, model_name):
     delta_z.columns = 0             # reset column index
 
     plt.figure()
-    plt.plot(time, delta_z, label="delta_z")
+    plt.plot(time, delta_z)
 
     plt.legend()
-    plt.xlabel("Completed episode (%)")
-    plt.title("Action - delta_z")
+    plt.xlabel(r"Completed episode (\%)")
+    plt.title(r"$\Delta_z$")
 
 
 def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
@@ -491,3 +491,26 @@ def scale_gain(kp, kp_min, kp_max):
     scaled_kp = (kp - kp_input_transform) * kp_scale + kp_output_transform
 
     return scaled_kp
+
+
+def plot_training_rew_mean(tracking_filepath, variable_z_filepath, wrench_filepath):
+    tracking = pd.read_csv(tracking_filepath)
+    variable_z = pd.read_csv(variable_z_filepath)
+    wrench = pd.read_csv(wrench_filepath)
+
+    tracking.drop(columns="Wall time", inplace=True)
+    variable_z.drop(columns="Wall time", inplace=True)
+    wrench.drop(columns="Wall time", inplace=True)
+
+    plt.figure()
+    plt.plot(wrench["Step"], wrench["Value"], label="Baseline")
+    plt.plot(tracking["Step"], tracking["Value"], label="Variable impedance")
+    plt.plot(variable_z["Step"], variable_z["Value"], label="Augmented variable impedance")
+
+    plt.legend()
+    plt.xlabel(r"Step")
+    plt.ylabel(r"Episodic mean reward")
+    plt.title(r"Training curves")
+
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/training_curves.eps", bbox_inches="tight")
+    
