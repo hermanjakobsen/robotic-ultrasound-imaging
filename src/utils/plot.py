@@ -240,12 +240,12 @@ def plot_controller_gains(action_filename, time_filename, model_name):
 
     # tracking mode
     elif len(action.columns) == 6:
-        kp = scale_gain(action, 0, 500)
+        kp = scale_input(action, 0, 500, 0, 1)
         kd = 2 * np.sqrt(kp)
 
     # variable_z mode
     elif len(action.columns) == 7:
-        kp = scale_gain(action.iloc[:, :-1], 0, 500)
+        kp = scale_input(action.iloc[:, :-1], 0, 500, 0, 1)
         kd = 2 * np.sqrt(kp)
 
     else:
@@ -328,12 +328,15 @@ def plot_delta_z(action_filename, time_filename, model_name):
 
     delta_z = action.iloc[:, -1]
     delta_z.columns = 0             # reset column index
+    delta_z = scale_input(delta_z, -0.05, 0.05, -1, 1)  
 
     plt.figure()
     plt.plot(time, delta_z)
 
     plt.xlabel(r"Completed episode (\%)")
     plt.title(r"$\Delta_z$")
+
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/" + model_name + "/delta_z.eps", bbox_inches="tight")
 
 
 def hmfc_plot_ee_pos(pos_filename, pos_desired_filename, time_filename):
@@ -483,11 +486,11 @@ def plot_hmfc_data(run_num):
     hmfc_plot_torques("hmfc_test_data/desired_torque_" + num + ".csv", "hmfc_test_data/compensation_torque_" + num + ".csv", "hmfc_test_data/external_torque_" + num + ".csv", "hmfc_test_data/time_" + num + ".csv")
 
 
-def scale_gain(kp, kp_min, kp_max):
-    kp_scale = abs(kp_max - kp_min) / abs(1 - 0)
-    kp_output_transform = (kp_max + kp_min) / 2.0
-    kp_input_transform = (1 + 0) / 2.0
-    scaled_kp = (kp - kp_input_transform) * kp_scale + kp_output_transform
+def scale_input(input, output_min, output_max, input_min, input_max):
+    input_scale = abs(output_max - output_min) / abs(input_max - input_min)
+    output_transform = (output_max + output_min) / 2.0
+    input_transform = (input_max + input_min) / 2.0
+    scaled_kp = (input - input_transform) * input_scale + output_transform
 
     return scaled_kp
 
