@@ -332,7 +332,6 @@ def plot_delta_z(action_filename, time_filename, model_name):
     plt.figure()
     plt.plot(time, delta_z)
 
-    plt.legend()
     plt.xlabel(r"Completed episode (\%)")
     plt.title(r"$\Delta_z$")
 
