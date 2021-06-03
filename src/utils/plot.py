@@ -193,7 +193,7 @@ def plot_qtorques(qtorque_filepath, time_filepath, title=None):
     plt.xlabel("Completed episode (\%)")
 
 
-def plot_controller_gains(action_filepath, time_filepath, model_name):
+def plot_controller_gains(action_filepath, time_filepath, model_name, use_subfig=True):
     action = pd.read_csv(action_filepath, header=None)
     time = pd.read_csv(time_filepath, header=None)
 
@@ -216,36 +216,52 @@ def plot_controller_gains(action_filepath, time_filepath, model_name):
 
     # reset column indices
     kd.columns = [i for i in range(len(kd.columns))] 
-
-    fig1, axs1 = plt.subplots(len(kd.columns))
-    fig1.suptitle("Controller $k_d$ gains")
-    for i in range(len(kd.columns)):
-        if i < len(kd.columns) - 1:
-            axs1[i].xaxis.set_major_locator(plt.NullLocator())
-
-        axs1[i].plot(time, kd[i], color=colors[i])
-        axs1[i].set_title(labels[i])
-
-    plt.xlabel("Completed episode (\%)")
-
-    save_fig(model_name, "kd.eps")
-
-
-    # reset column indices
-    kp.columns = [i for i in range(len(kp.columns))] 
-
-    fig2, axs2 = plt.subplots(len(kp.columns))
-    fig2.suptitle("Controller $k_p$ gains")
-    for i in range(len(kp.columns)):
-        if i < len(kp.columns) - 1:
-            axs2[i].xaxis.set_major_locator(plt.NullLocator())
-        
-        axs2[i].plot(time, kp[i], color=colors[i])
-        axs2[i].set_title(labels[i])
-
-    plt.xlabel("Completed episode (\%)")
+    kp.columns = [i for i in range(len(kp.columns))]
     
-    save_fig(model_name, "kp.eps")
+    if use_subfig:
+        fig1, axs1 = plt.subplots(len(kd.columns))
+        fig1.suptitle("Controller $k_d$ gains")
+        for i in range(len(kd.columns)):
+            if i < len(kd.columns) - 1:
+                axs1[i].xaxis.set_major_locator(plt.NullLocator())
+
+            axs1[i].plot(time, kd[i], color=colors[i])
+            axs1[i].set_title(labels[i])
+
+        plt.xlabel("Completed episode (\%)")
+
+        save_fig(model_name, "kd.eps")
+
+        fig2, axs2 = plt.subplots(len(kp.columns))
+        fig2.suptitle("Controller $k_p$ gains")
+        for i in range(len(kp.columns)):
+            if i < len(kp.columns) - 1:
+                axs2[i].xaxis.set_major_locator(plt.NullLocator())
+            
+            axs2[i].plot(time, kp[i], color=colors[i])
+            axs2[i].set_title(labels[i])
+
+        plt.xlabel("Completed episode (\%)")
+        
+        save_fig(model_name, "kp.eps")
+
+    else:
+        for i in range(len(kd.columns)):
+            plt.figure()
+            plt.plot(time, kd[i])
+            plt.title(labels[i])
+            plt.xlabel("Completed episode (\%)")
+
+            save_fig(model_name, "kd_" + labels[i] +".eps")
+
+        for i in range(len(kp.columns)):
+            plt.figure()
+            plt.plot(time, kp[i])
+            plt.title(labels[i])
+            plt.xlabel("Completed episode (\%)")
+
+            save_fig(model_name, "kp_" + labels[i] + ".eps")
+
 
 
 def plot_wrench(action_filepath, time_filepath, model_name):
@@ -391,7 +407,7 @@ def plot_sim_data(identifier, model_name, show_figs):
     if model_name == "baseline":    
         plot_wrench(action_path, time_path, model_name)
     else:
-        plot_controller_gains(action_path, time_path, model_name)
+        plot_controller_gains(action_path, time_path, model_name, False)
         plot_delta_z(action_path, time_path, model_name)
 
     #plot_qpos("simulation_data/q_pos_" + id + ".csv", "simulation_data/time_" + id + ".csv")
