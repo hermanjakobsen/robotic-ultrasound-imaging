@@ -406,10 +406,6 @@ def plot_training_rew_mean(tracking_filepath, variable_z_filepath, wrench_filepa
     variable_z = pd.read_csv(variable_z_filepath)
     wrench = pd.read_csv(wrench_filepath)
 
-    tracking.drop(columns="Wall time", inplace=True)
-    variable_z.drop(columns="Wall time", inplace=True)
-    wrench.drop(columns="Wall time", inplace=True)
-
     plt.figure()
     plt.plot(wrench["Step"], wrench["Value"], label="Baseline")
     plt.plot(tracking["Step"], tracking["Value"], label="Variable impedance")
@@ -421,6 +417,22 @@ def plot_training_rew_mean(tracking_filepath, variable_z_filepath, wrench_filepa
     plt.title(r"Training curves")
 
     plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/training_curves.eps", bbox_inches="tight")
+
+
+def plot_training_rew_mean_obs_space(tracking_full_obs_filepath, tracking_reduced_obs_filepath):
+    full_obs = pd.read_csv(tracking_full_obs_filepath)
+    reduced_obs = pd.read_csv(tracking_reduced_obs_filepath)
+
+    plt.figure()
+    plt.plot(full_obs["Step"], full_obs["Value"], label="Full observation space")
+    plt.plot(reduced_obs["Step"], reduced_obs["Value"], label="Reduced observation space")
+
+    plt.legend()
+    plt.xlabel(r"Step")
+    plt.ylabel(r"Episodic mean reward")
+    plt.title(r"Variable impedance model")
+
+    plt.savefig("/home/hermankj/Documents/master_thesis_figures/results/effect_obs_space.eps", bbox_inches="tight")
     
 
 def hmfc_plot_z_force(force_filepath, mean, desired_force_filepath, time_filepath):
