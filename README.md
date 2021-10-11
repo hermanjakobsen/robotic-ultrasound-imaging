@@ -1,5 +1,5 @@
 # Robotic ultrasound imaging
-The thesis is available at: https://ntnuopen.ntnu.no/ntnu-xmlui/handle/11250/2781078
+The thesis is available at: https://ntnuopen.ntnu.no/ntnu-xmlui/handle/11250/2781078?locale-attribute=en
 
 The overarching goal of this framework is to make a robot manipulator able to conduct automatic ultrasound imaging. 
 
