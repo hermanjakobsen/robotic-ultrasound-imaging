@@ -1,4 +1,6 @@
 # Robotic ultrasound imaging
+The thesis is available at: https://ntnuopen.ntnu.no/ntnu-xmlui/handle/11250/2781078
+
 The overarching goal of this framework is to make a robot manipulator able to conduct automatic ultrasound imaging. 
 
 As a first step, a simulation environment for experimenting with soft contacts has been created. Using reinforcement learning, the goal of the **ultrasound task** is to learn a robot how to perform a sweep across the surface of a soft body, while both exerting a desired force and keeping a constant velocity.  
